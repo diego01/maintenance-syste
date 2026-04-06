@@ -1,0 +1,3111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PM Control — Preventive Maintenance</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════ */
+:root {
+  --bg:        #0b0e14;
+  --surface:   #111520;
+  --surface2:  #171c2b;
+  --surface3:  #1d2335;
+  --surface4:  #242a3d;
+  --border:    #252d42;
+  --border2:   #2f3a55;
+  --text:      #e2e8f0;
+  --text2:     #8892a4;
+  --text3:     #4a5568;
+  --accent:    #3b82f6;
+  --accent2:   #2563eb;
+  --accentGlow:#3b82f620;
+  --green:     #10b981;
+  --greenBg:   #0a1f17;
+  --greenBdr:  #134e35;
+  --amber:     #f59e0b;
+  --amberBg:   #1c1505;
+  --amberBdr:  #3d2f0a;
+  --red:       #ef4444;
+  --redBg:     #1a0808;
+  --redBdr:    #3d1212;
+  --purple:    #8b5cf6;
+  --purpleBg:  #130f1f;
+  --cyan:      #06b6d4;
+  --sidebar-w: 260px;
+  --header-h:  64px;
+  --r:         10px;
+  --r-sm:      7px;
+  --shadow:    0 4px 20px #0005;
+  --shadow-md: 0 8px 32px #0008;
+}
+
+/* ═══ RESET & BASE ═══ */
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════════ */
+#sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  height:100vh;overflow:hidden;
+  transition:width .25s ease;
+  position:relative;z-index:50;
+}
+#sidebar.collapsed{width:60px}
+#sidebar.collapsed .sb-label,
+#sidebar.collapsed .sb-section-title,
+#sidebar.collapsed .month-nav-label,
+#sidebar.collapsed .logo-text{display:none}
+#sidebar.collapsed .sb-item{justify-content:center;padding:12px 0}
+#sidebar.collapsed .logo{justify-content:center;padding:20px 0}
+
+.logo{
+  padding:20px 20px 16px;
+  display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.logo-icon{
+  width:36px;height:36px;border-radius:9px;
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex-shrink:0;
+}
+.logo-text{display:flex;flex-direction:column;line-height:1.2}
+.logo-name{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.logo-sub{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:500}
+
+/* Month navigator in sidebar */
+.month-nav-wrap{
+  padding:16px 14px 12px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.month-nav-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.month-nav{display:flex;align-items:center;gap:6px}
+.mn-btn{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+  background:transparent;color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;transition:all .15s;flex-shrink:0;
+}
+.mn-btn:hover{background:var(--surface3);color:var(--text);border-color:var(--border2)}
+.mn-current{
+  flex:1;text-align:center;font-size:13px;font-weight:600;
+  color:var(--text);cursor:pointer;
+  background:var(--surface3);border:1px solid var(--border);
+  border-radius:6px;padding:5px 4px;
+}
+
+/* Sidebar nav */
+.sb-nav{flex:1;overflow-y:auto;padding:10px 8px}
+.sb-section-title{
+  font-size:10px;font-weight:600;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.8px;
+  padding:8px 8px 4px;margin-top:4px;
+}
+.sb-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:var(--r-sm);
+  cursor:pointer;transition:all .15s;
+  color:var(--text2);font-size:13px;font-weight:500;
+  border:1px solid transparent;margin-bottom:2px;
+}
+.sb-item:hover{background:var(--surface3);color:var(--text)}
+.sb-item.active{background:var(--accentGlow);color:var(--accent);border-color:var(--accent)25}
+.sb-item i{width:16px;text-align:center;font-size:13px;flex-shrink:0}
+.sb-badge{
+  margin-left:auto;background:var(--red);color:#fff;
+  font-size:10px;font-weight:700;padding:2px 6px;
+  border-radius:50px;font-family:'JetBrains Mono',monospace;
+}
+
+/* Sidebar footer */
+.sb-footer{
+  padding:12px 8px;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+}
+.sb-collapse-btn{
+  width:100%;display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:var(--r-sm);
+  background:transparent;border:1px solid var(--border);
+  color:var(--text2);cursor:pointer;font-size:12px;
+  font-family:'Inter',sans-serif;transition:all .15s;
+}
+.sb-collapse-btn:hover{background:var(--surface3);color:var(--text)}
+
+/* ═══════════════════════════════════════════════
+   MAIN AREA
+═══════════════════════════════════════════════ */
+#main-area{
+  flex:1;display:flex;flex-direction:column;
+  overflow:hidden;min-width:0;
+}
+
+/* Header */
+#top-header{
+  height:var(--header-h);flex-shrink:0;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;gap:16px;
+}
+.header-breadcrumb{
+  font-size:13px;color:var(--text2);
+  display:flex;align-items:center;gap:6px;
+}
+.header-breadcrumb .current{color:var(--text);font-weight:600}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.header-stat{
+  display:flex;align-items:center;gap:6px;
+  background:var(--surface3);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:6px 12px;
+}
+.hs-label{font-size:11px;color:var(--text3)}
+.hs-val{font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace}
+
+/* Search bar */
+.search-wrap{position:relative}
+.search-input{
+  background:var(--surface3);border:1px solid var(--border);
+  color:var(--text);border-radius:var(--r-sm);
+  padding:7px 12px 7px 32px;font-size:13px;
+  font-family:'Inter',sans-serif;outline:none;width:200px;
+  transition:all .2s;
+}
+.search-input:focus{border-color:var(--accent);width:260px;background:var(--surface2)}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;pointer-events:none}
+
+/* ═══════════════════════════════════════════════
+   CONTENT
+═══════════════════════════════════════════════ */
+#content{flex:1;overflow-y:auto;padding:20px 24px}
+
+/* Views */
+.view{display:none;animation:fadeUp .2s ease}
+.view.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══ PAGE HEADER ═══ */
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px}
+.page-title{font-size:22px;font-weight:800;letter-spacing:-.4px}
+.page-sub{font-size:13px;color:var(--text2);margin-top:3px}
+.page-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+/* ═══ GRIDS ═══ */
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+.mt12{margin-top:12px}.mt16{margin-top:16px}.mt20{margin-top:20px}
+
+/* ═══ BUTTONS ═══ */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 14px;border-radius:var(--r-sm);
+  font-size:13px;font-weight:500;cursor:pointer;
+  border:none;transition:all .15s;
+  font-family:'Inter',sans-serif;white-space:nowrap;
+}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface3);color:var(--text)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:hover{background:#059669}
+.btn-success:disabled{background:var(--surface4);color:var(--text3);cursor:not-allowed;opacity:.6}
+.btn-danger{background:var(--red);color:#fff}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+/* ═══ CARDS ═══ */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+}
+.card-header{
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.card-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px}
+.card-title i{color:var(--text3);font-size:12px}
+.card-body{padding:18px}
+.card-body-sm{padding:12px 18px}
+
+/* ═══ KPI CARDS ═══ */
+.kpi{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:18px;
+  position:relative;overflow:hidden;transition:border-color .2s;
+}
+.kpi:hover{border-color:var(--border2)}
+.kpi-accent{border-left:3px solid var(--accent)}
+.kpi-green{border-left:3px solid var(--green)}
+.kpi-amber{border-left:3px solid var(--amber)}
+.kpi-red{border-left:3px solid var(--red)}
+.kpi-purple{border-left:3px solid var(--purple)}
+.kpi-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.kpi-val{font-size:30px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1;margin-bottom:6px}
+.kpi-sub{font-size:11px;color:var(--text3)}
+.kpi-accent .kpi-val{color:var(--accent)}
+.kpi-green .kpi-val{color:var(--green)}
+.kpi-amber .kpi-val{color:var(--amber)}
+.kpi-red .kpi-val{color:var(--red)}
+.kpi-purple .kpi-val{color:var(--purple)}
+.kpi-trend{
+  position:absolute;right:16px;top:16px;
+  font-size:11px;font-weight:600;
+  padding:3px 8px;border-radius:50px;
+}
+.trend-up{background:var(--redBg);color:var(--red)}
+.trend-ok{background:var(--greenBg);color:var(--green)}
+
+/* ═══ PROGRESS ═══ */
+.prog-wrap{
+  height:6px;background:var(--surface4);
+  border-radius:3px;overflow:hidden;
+}
+.prog-fill{
+  height:100%;border-radius:3px;
+  transition:width .5s cubic-bezier(.4,0,.2,1);
+}
+.prog-green{background:var(--green)}
+.prog-amber{background:var(--amber)}
+.prog-red{background:var(--red)}
+.prog-blue{background:var(--accent)}
+
+/* ═══ BADGES ═══ */
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 9px;border-radius:50px;
+  font-size:11px;font-weight:600;
+  font-family:'JetBrains Mono',monospace;
+}
+.badge-pending{background:var(--surface4);color:var(--text2);border:1px solid var(--border)}
+.badge-progress{background:var(--amberBg);color:var(--amber);border:1px solid var(--amberBdr)}
+.badge-done{background:var(--greenBg);color:var(--green);border:1px solid var(--greenBdr)}
+.badge-incident{background:var(--redBg);color:var(--red);border:1px solid var(--redBdr)}
+.badge-blue{background:var(--accentGlow);color:var(--accent);border:1px solid var(--accent)30}
+
+/* ═══ EQUIPMENT BLOCKS ═══ */
+.equip-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;margin-bottom:12px;
+  transition:border-color .2s;
+}
+.equip-card:hover{border-color:var(--border2)}
+.equip-card.status-done{border-left:3px solid var(--green)}
+.equip-card.status-progress{border-left:3px solid var(--amber)}
+.equip-card.status-pending{border-left:3px solid var(--surface4)}
+.equip-head{
+  padding:14px 18px;display:flex;align-items:center;
+  cursor:pointer;user-select:none;gap:12px;
+  background:var(--surface2);
+  transition:background .15s;
+}
+.equip-head:hover{background:var(--surface3)}
+.equip-head-left{flex:1;display:flex;align-items:center;gap:10px;min-width:0}
+.equip-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.equip-head-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.equip-pct{font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;min-width:36px;text-align:right}
+.equip-prog{width:80px}
+.equip-chevron{color:var(--text3);font-size:11px;transition:transform .2s;flex-shrink:0}
+.equip-card.open .equip-chevron{transform:rotate(180deg)}
+.equip-body{display:none;border-top:1px solid var(--border)}
+.equip-card.open .equip-body{display:block}
+
+/* ═══ MACHINE BLOCKS ═══ */
+.machine-wrap{
+  padding:16px 18px;
+  border-bottom:1px solid var(--border);
+}
+.machine-wrap:last-child{border-bottom:none}
+.machine-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.machine-label{font-size:12px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:6px}
+.machine-label i{color:var(--text3)}
+.serial-field{
+  display:flex;align-items:center;gap:6px;
+}
+.serial-input{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:var(--surface3);border:1px solid var(--border);
+  color:var(--text);border-radius:6px;padding:5px 9px;
+  width:150px;outline:none;transition:border-color .15s;
+}
+.serial-input:focus{border-color:var(--accent)}
+.serial-input.no-serial{border-color:var(--amber)!important}
+.serial-label{font-size:11px;color:var(--text3)}
+
+/* Tasks */
+.task-list{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.task-row{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 11px;border-radius:var(--r-sm);
+  border:1px solid var(--border);background:var(--surface3);
+  cursor:pointer;transition:all .15s;
+}
+.task-row:hover{border-color:var(--border2);background:var(--surface4)}
+.task-row.done{background:var(--greenBg);border-color:var(--greenBdr)}
+.task-row.done .task-txt{color:var(--text3);text-decoration:line-through}
+.task-chk{
+  width:17px;height:17px;border-radius:4px;
+  border:2px solid var(--border2);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.task-row.done .task-chk{background:var(--green);border-color:var(--green)}
+.task-chk i{font-size:9px;color:#fff;display:none}
+.task-row.done .task-chk i{display:block}
+.task-txt{font-size:12px;flex:1;line-height:1.4}
+
+/* Machine footer */
+.machine-footer{display:flex;gap:10px;align-items:flex-start}
+.time-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.time-lbl{font-size:11px;color:var(--text3);white-space:nowrap}
+.time-inp{
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  background:var(--surface3);border:1px solid var(--border);
+  color:var(--text);border-radius:6px;padding:6px 8px;
+  width:72px;outline:none;text-align:center;
+  transition:border-color .15s;
+}
+.time-inp:focus{border-color:var(--accent)}
+.notes-inp{
+  flex:1;font-family:'Inter',sans-serif;font-size:12px;
+  background:var(--surface3);border:1px solid var(--border);
+  color:var(--text);border-radius:6px;padding:6px 10px;
+  outline:none;resize:none;line-height:1.5;min-height:34px;
+  transition:border-color .15s;
+}
+.notes-inp:focus{border-color:var(--accent)}
+.notes-inp.incident{border-color:var(--red)!important;background:var(--redBg)}
+.hours-row{
+  display:flex;align-items:center;gap:14px;
+  padding:9px 13px;background:var(--surface3);
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  margin-top:10px;font-size:12px;
+}
+.hr-item{display:flex;flex-direction:column;gap:2px}
+.hr-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.hr-val{font-family:'JetBrains Mono',monospace;font-weight:600}
+.hr-sep{color:var(--border2);font-size:16px}
+.dev-over{color:var(--red)}
+.dev-under{color:var(--green)}
+.risk-pill{
+  margin-left:auto;padding:3px 9px;border-radius:50px;
+  font-size:10px;font-weight:700;
+}
+.risk-high{background:var(--redBg);color:var(--red);border:1px solid var(--redBdr)}
+.risk-med{background:var(--amberBg);color:var(--amber);border:1px solid var(--amberBdr)}
+
+/* ═══ FILTER BAR ═══ */
+.filter-bar{
+  display:flex;gap:8px;margin-bottom:16px;
+  flex-wrap:wrap;align-items:center;
+}
+.flt-select{
+  background:var(--surface);border:1px solid var(--border);
+  color:var(--text);border-radius:var(--r-sm);
+  padding:7px 12px;font-size:12px;outline:none;
+  font-family:'Inter',sans-serif;cursor:pointer;
+}
+.flt-select:focus{border-color:var(--accent)}
+.flt-tag{
+  padding:5px 12px;border-radius:50px;font-size:12px;
+  cursor:pointer;border:1px solid var(--border);
+  background:transparent;color:var(--text2);
+  font-family:'Inter',sans-serif;transition:all .15s;
+}
+.flt-tag.active{background:var(--accentGlow);color:var(--accent);border-color:var(--accent)40}
+.flt-tag:hover:not(.active){background:var(--surface3);color:var(--text)}
+
+/* ═══ ALERTS ═══ */
+.alert{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:11px 14px;border-radius:var(--r-sm);
+  font-size:12px;margin-bottom:10px;
+}
+.alert i{margin-top:1px;flex-shrink:0}
+.alert-warn{background:var(--amberBg);border:1px solid var(--amberBdr);color:var(--amber)}
+.alert-danger{background:var(--redBg);border:1px solid var(--redBdr);color:var(--red)}
+.alert-info{background:var(--accentGlow);border:1px solid var(--accent)30;color:var(--accent)}
+.alert-success{background:var(--greenBg);border:1px solid var(--greenBdr);color:var(--green)}
+
+/* ═══ APRIL KICKOFF ═══ */
+.kickoff-card{
+  background:linear-gradient(135deg,#0f1c3a 0%,#0a1428 100%);
+  border:1px solid #1e3a6e;border-radius:var(--r);
+  padding:20px 24px;margin-bottom:16px;
+  display:flex;align-items:center;gap:20px;
+}
+.kickoff-icon{
+  width:52px;height:52px;border-radius:12px;
+  background:linear-gradient(135deg,#2563eb,#7c3aed);
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;flex-shrink:0;
+}
+.kickoff-date{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--accent);color:#fff;
+  padding:3px 10px;border-radius:50px;
+  font-size:11px;font-weight:600;margin-bottom:7px;
+}
+.kickoff-title{font-size:17px;font-weight:700;margin-bottom:4px}
+.kickoff-desc{font-size:12px;color:#94a3b8;line-height:1.5}
+
+/* ═══ CHART ═══ */
+.chart-h240{height:240px;position:relative}
+.chart-h200{height:200px;position:relative}
+.chart-h160{height:160px;position:relative}
+.no-data{text-align:center;padding:40px;color:var(--text3);font-size:13px}
+.no-data-ico{font-size:28px;margin-bottom:8px;opacity:.4}
+
+/* ═══ TABLE ═══ */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{
+  padding:9px 14px;text-align:left;
+  font-size:10px;font-weight:600;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:1px solid var(--border);background:var(--surface3);
+}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--surface3)}
+.tbl-mono{font-family:'JetBrains Mono',monospace}
+
+/* ═══ TIMELINE ═══ */
+.timeline{padding:4px 0}
+.tl-item{display:flex;gap:14px;margin-bottom:16px}
+.tl-line{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.tl-dot{width:10px;height:10px;border-radius:50%;background:var(--border2);flex-shrink:0;margin-top:3px}
+.tl-dot.done{background:var(--green)}
+.tl-dot.progress{background:var(--amber)}
+.tl-stem{flex:1;width:2px;background:var(--border);margin-top:4px}
+.tl-content{flex:1;padding-bottom:4px}
+.tl-month{font-size:12px;font-weight:700;color:var(--text2)}
+.tl-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ═══ PREVIEW CARD ═══ */
+.preview-item{
+  padding:11px 14px;background:var(--surface3);
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  margin-bottom:8px;
+}
+.preview-name{font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text2)}
+.preview-task{font-size:11px;color:var(--text3);padding:2px 0;display:flex;align-items:center;gap:5px}
+.preview-task::before{content:'·';color:var(--border2);font-size:16px}
+
+/* ═══ CONFIG ═══ */
+.cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.cfg-card{
+  background:var(--surface3);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:16px;
+}
+.cfg-equip-name{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.cfg-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.cfg-lbl{font-size:11px;color:var(--text2);width:70px;flex-shrink:0}
+
+/* ═══ MONTH PICKER ═══ */
+.month-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+  padding:12px;
+}
+.mpick{
+  padding:8px 4px;text-align:center;border-radius:var(--r-sm);
+  border:1px solid var(--border);cursor:pointer;
+  font-size:12px;font-weight:500;color:var(--text2);
+  background:var(--surface3);transition:all .15s;
+}
+.mpick:hover{background:var(--surface4);color:var(--text)}
+.mpick.active{background:var(--accentGlow);color:var(--accent);border-color:var(--accent)50}
+.mpick.has-data{border-color:var(--greenBdr)}
+
+/* ═══ WEEKLY SCHEDULE ═══ */
+.week-block{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;margin-bottom:14px;
+  transition:border-color .2s;
+}
+.week-block:hover{border-color:var(--border2)}
+.week-block.overload{border-left:3px solid var(--amber)}
+.week-block.complete{border-left:3px solid var(--green)}
+.week-head{
+  padding:14px 18px;background:var(--surface2);
+  display:flex;align-items:center;gap:12px;
+  cursor:pointer;transition:background .15s;
+}
+.week-head:hover{background:var(--surface3)}
+.week-date-badge{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:48px;height:48px;border-radius:10px;
+  background:var(--accentGlow);border:1px solid var(--accent)30;
+  flex-shrink:0;
+}
+.week-date-day{font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent);line-height:1}
+.week-date-mon{font-size:9px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+.week-head-info{flex:1;min-width:0}
+.week-label{font-size:14px;font-weight:700;margin-bottom:3px}
+.week-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.week-stat{
+  display:flex;align-items:center;gap:4px;
+  font-size:11px;color:var(--text3);
+}
+.week-stat i{font-size:10px}
+.week-cap-bar{
+  display:flex;align-items:center;gap:8px;
+  margin-top:6px;
+}
+.cap-label{font-size:10px;color:var(--text3);white-space:nowrap}
+.cap-track{
+  flex:1;height:8px;background:var(--surface4);
+  border-radius:4px;overflow:hidden;position:relative;
+}
+.cap-fill{height:100%;border-radius:4px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.cap-fill.ok{background:var(--green)}
+.cap-fill.warn{background:var(--amber)}
+.cap-fill.over{background:var(--red)}
+.cap-marker{
+  position:absolute;right:0;top:-2px;bottom:-2px;width:2px;
+  background:var(--border2);
+}
+.cap-pct{font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;min-width:32px;text-align:right}
+.overload-pill{
+  padding:3px 9px;border-radius:50px;font-size:10px;font-weight:700;
+  background:var(--amberBg);color:var(--amber);border:1px solid var(--amberBdr);
+  display:flex;align-items:center;gap:4px;flex-shrink:0;
+}
+.week-complete-pill{
+  padding:3px 9px;border-radius:50px;font-size:10px;font-weight:700;
+  background:var(--greenBg);color:var(--green);border:1px solid var(--greenBdr);
+  display:flex;align-items:center;gap:4px;flex-shrink:0;
+}
+.week-body{padding:0;border-top:1px solid var(--border);display:none}
+.week-block.open .week-body{display:block}
+.week-equip-row{
+  border-bottom:1px solid var(--border);
+  padding:12px 18px;
+}
+.week-equip-row:last-child{border-bottom:none}
+.wer-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.wer-name{font-size:13px;font-weight:600;flex:1}
+.wer-hours{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text3)}
+.wer-machines{display:flex;flex-direction:column;gap:6px}
+.wer-machine{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 10px;background:var(--surface3);
+  border-radius:var(--r-sm);border:1px solid var(--border);
+}
+.wer-machine.done{background:var(--greenBg);border-color:var(--greenBdr)}
+.wer-machine-label{font-size:12px;font-weight:500;flex:1}
+.wer-machine.done .wer-machine-label{color:var(--text3)}
+.wer-serial{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text3)}
+.wer-time-inp{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:var(--surface4);border:1px solid var(--border);
+  color:var(--text);border-radius:5px;padding:4px 7px;
+  width:60px;outline:none;text-align:center;
+}
+.wer-time-inp:focus{border-color:var(--accent)}
+.wer-done-btn{
+  display:flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:5px;
+  border:2px solid var(--border2);cursor:pointer;
+  background:transparent;transition:all .2s;flex-shrink:0;
+}
+.wer-done-btn:hover{border-color:var(--green);background:var(--greenBg)}
+.wer-done-btn.checked{background:var(--green);border-color:var(--green)}
+.wer-done-btn i{font-size:10px;color:#fff;display:none}
+.wer-done-btn.checked i{display:block}
+.week-footer{
+  padding:12px 18px;background:var(--surface3);
+  border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;
+  font-size:12px;flex-wrap:wrap;
+}
+.wf-item{display:flex;flex-direction:column;gap:2px}
+.wf-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.wf-val{font-family:'JetBrains Mono',monospace;font-weight:600}
+.week-summary-bar{
+  padding:14px 18px;
+  background:var(--surface2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+}
+.wsb-item{display:flex;flex-direction:column;gap:2px}
+.wsb-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.wsb-val{font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace}
+
+/* ═══ MAINTENANCE DAY SETTINGS ═══ */
+.mds-card{
+  background:var(--surface3);border:1px solid var(--border);
+  border-radius:var(--r);padding:20px;margin-bottom:16px;
+}
+.mds-title{font-size:14px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.mds-sub{font-size:12px;color:var(--text3);margin-bottom:16px}
+.mds-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.mds-field{display:flex;flex-direction:column;gap:5px}
+.mds-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.mds-select{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s;width:100%}
+.mds-select:focus{border-color:var(--accent)}
+.mds-radio-group{display:flex;flex-direction:column;gap:8px}
+.mds-radio-item{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2)}
+.mds-radio-item input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+.mds-radio-item:hover{color:var(--text)}
+.day-schedule-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.day-schedule-table th{padding:8px 12px;background:var(--surface4);font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.day-schedule-table td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text)}
+.day-schedule-table tr:last-child td{border-bottom:none}
+.day-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:50px;font-size:11px;font-weight:600;background:var(--accentGlow);color:var(--accent);border:1px solid var(--accent)30}
+.day-tag.custom{background:var(--amberBg);color:var(--amber);border-color:var(--amberBdr)}
+
+.stock-ok{color:var(--green)}
+.stock-low{color:var(--amber)}
+.stock-out{color:var(--red)}
+.stock-badge-ok{background:var(--greenBg);color:var(--green);border:1px solid var(--greenBdr);padding:3px 9px;border-radius:50px;font-size:11px;font-weight:600}
+.stock-badge-low{background:var(--amberBg);color:var(--amber);border:1px solid var(--amberBdr);padding:3px 9px;border-radius:50px;font-size:11px;font-weight:600}
+.stock-badge-out{background:var(--redBg);color:var(--red);border:1px solid var(--redBdr);padding:3px 9px;border-radius:50px;font-size:11px;font-weight:600}
+.qty-ctrl{display:flex;align-items:center;gap:4px}
+.qty-btn{width:22px;height:22px;border-radius:4px;border:1px solid var(--border);background:var(--surface4);color:var(--text);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.qty-btn:hover{background:var(--surface3);border-color:var(--border2)}
+.qty-val{font-family:'JetBrains Mono',monospace;font-weight:700;min-width:28px;text-align:center;font-size:13px}
+.field-label{display:block;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.field-input{width:100%;background:var(--surface3);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+.field-input:focus{border-color:var(--accent)}
+textarea.field-input{resize:vertical;min-height:60px}
+select.field-input option{background:var(--surface2)}
+.link-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);text-decoration:none;padding:3px 8px;border-radius:4px;border:1px solid var(--accent)30;background:var(--accentGlow);transition:all .15s}
+.link-btn:hover{background:var(--accent);color:#fff}
+.part-modal-overlay{position:fixed;inset:0;background:#0009;z-index:999;display:none;align-items:center;justify-content:center}
+.part-modal-overlay.open{display:flex}
+
+/* ═══ GANTT ═══ */
+.gantt-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border)}
+.gantt-table{width:100%;border-collapse:collapse;min-width:700px}
+.gantt-th{padding:10px 14px;background:var(--surface3);font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+.gantt-th.week-col{text-align:center;min-width:130px}
+.gantt-td{padding:7px 14px;border-bottom:1px solid var(--border);vertical-align:middle;background:var(--surface)}
+.gantt-tr:hover .gantt-td{background:var(--surface2)}
+.gantt-equip-name{font-size:12px;font-weight:600;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+.gantt-machine-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.gantt-week-cell{text-align:center;padding:5px 6px}
+.gantt-bar{border-radius:6px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:4px;min-height:32px}
+.gantt-bar:hover{filter:brightness(1.15);transform:scaleY(1.06)}
+.gantt-bar.pending{background:var(--surface4);color:var(--text3);border:1px solid var(--border2)}
+.gantt-bar.progress{background:var(--amberBg);color:var(--amber);border:1px solid var(--amberBdr)}
+.gantt-bar.done{background:var(--greenBg);color:var(--green);border:1px solid var(--greenBdr)}
+.gantt-bar.delayed{background:var(--redBg);color:var(--red);border:1px solid var(--redBdr)}
+.gantt-bar.empty{background:transparent;border:1px dashed var(--border);cursor:default;opacity:.3}
+.gantt-bar.empty:hover{filter:none;transform:none}
+.gantt-prog-strip{position:absolute;left:0;top:0;bottom:0;border-radius:6px;opacity:.2;pointer-events:none;transition:width .4s}
+.gantt-prog-strip.done{background:var(--green)}
+.gantt-prog-strip.progress{background:var(--amber)}
+.gantt-today-col{border-left:2px solid var(--accent)!important;position:relative}
+.gantt-tooltip{position:fixed;z-index:900;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:10px 14px;font-size:12px;pointer-events:none;box-shadow:var(--shadow-md);min-width:210px;display:none}
+.gt-row{display:flex;justify-content:space-between;gap:16px;margin-bottom:4px}
+.gt-label{color:var(--text3);font-size:11px}
+.gt-val{font-weight:600;font-family:'JetBrains Mono',monospace;font-size:11px}
+.gantt-cap-tag{font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;display:inline-block;margin-top:2px}
+.gantt-summary-row{background:var(--surface3)!important}
+.gantt-summary-row .gantt-td{border-top:2px solid var(--border2);font-weight:700}
+@keyframes checkPop{0%{transform:scale(1)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+.task-chk.checked-anim{animation:checkPop .18s ease}
+
+
+  .g4{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(2,1fr)}
+  .g21{grid-template-columns:1fr}
+}
+@media(max-width:768px){
+  :root{--sidebar-w:0px}
+  #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;width:260px;transform:translateX(-100%);transition:transform .25s ease}
+  #sidebar.mobile-open{transform:translateX(0)}
+  .g4,.g3,.g2,.g21{grid-template-columns:1fr}
+  #content{padding:14px}
+  #top-header{padding:0 14px}
+  .header-stat{display:none}
+  .page-title{font-size:18px}
+}
+
+/* ═══ MISC ═══ */
+.divider{height:1px;background:var(--border);margin:16px 0}
+.muted{color:var(--text3)}
+.mono{font-family:'JetBrains Mono',monospace}
+.fw7{font-weight:700}
+.text-green{color:var(--green)}
+.text-amber{color:var(--amber)}
+.text-red{color:var(--red)}
+.text-accent{color:var(--accent)}
+.flex-c{display:flex;align-items:center;gap:8px}
+.ml-auto{margin-left:auto}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════════ -->
+<nav id="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🔧</div>
+    <div class="logo-text">
+      <span class="logo-name">PM Control</span>
+      <span class="logo-sub">Maintenance System</span>
+    </div>
+  </div>
+
+  <!-- Month Navigator -->
+  <div class="month-nav-wrap">
+    <div class="month-nav-label">Active Month</div>
+    <div class="month-nav">
+      <button class="mn-btn" onclick="changeMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="mn-current" id="sb-month-label">—</div>
+      <button class="mn-btn" onclick="changeMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+  </div>
+
+  <!-- Nav items -->
+  <div class="sb-nav">
+    <div class="sb-section-title">Overview</div>
+    <div class="sb-item active" data-view="dashboard" onclick="switchView('dashboard',this)">
+      <i class="fa-solid fa-gauge-high"></i>
+      <span class="sb-label">Dashboard</span>
+    </div>
+    <div class="sb-item" data-view="schedule" onclick="switchView('schedule',this)">
+      <i class="fa-solid fa-calendar-check"></i>
+      <span class="sb-label">Schedule</span>
+      <span class="sb-badge" id="sb-pending-badge" style="display:none">0</span>
+    </div>
+    <div class="sb-item" data-view="weekly" onclick="switchView('weekly',this)">
+      <i class="fa-solid fa-calendar-week"></i>
+      <span class="sb-label">Weekly Schedule</span>
+      <span class="sb-badge" id="sb-overload-badge" style="display:none">!</span>
+    </div>
+    <div class="sb-section-title">Reports</div>
+    <div class="sb-item" data-view="analysis" onclick="switchView('analysis',this)">
+      <i class="fa-solid fa-chart-bar"></i>
+      <span class="sb-label">Analysis</span>
+    </div>
+    <div class="sb-item" data-view="history" onclick="switchView('history',this)">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      <span class="sb-label">History</span>
+    </div>
+    <div class="sb-section-title">Settings</div>
+    <div class="sb-item" data-view="config" onclick="switchView('config',this)">
+      <i class="fa-solid fa-sliders"></i>
+      <span class="sb-label">Equipment Setup</span>
+    </div>
+    <div class="sb-item" data-view="parts" onclick="switchView('parts',this)">
+      <i class="fa-solid fa-boxes-stacked"></i>
+      <span class="sb-label">Parts & Inventory</span>
+      <span class="sb-badge" id="sb-lowstock-badge" style="display:none;background:var(--amber)">0</span>
+    </div>
+    <div class="sb-item" data-view="gantt" onclick="switchView('gantt',this)">
+      <i class="fa-solid fa-bars-progress"></i>
+      <span class="sb-label">Gantt View</span>
+    </div>
+  </div>
+
+  <div class="sb-footer">
+    <button class="sb-collapse-btn" onclick="toggleSidebar()">
+      <i class="fa-solid fa-sidebar" id="sb-collapse-ico"></i>
+      <span class="sb-label" id="sb-collapse-lbl">Collapse</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════
+     MAIN
+═══════════════════════════════════════════════ -->
+<div id="main-area">
+
+  <!-- Top Header -->
+  <header id="top-header">
+    <button class="btn btn-ghost btn-sm" id="mobile-menu-btn" onclick="toggleMobileMenu()" style="display:none">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="header-breadcrumb">
+      <span class="muted">PM Control</span>
+      <i class="fa-solid fa-chevron-right" style="font-size:9px;color:var(--text3)"></i>
+      <span class="current" id="hdr-view-name">Dashboard</span>
+    </div>
+    <div class="header-right">
+      <div class="header-stat">
+        <span class="hs-label">Progress</span>
+        <span class="hs-val text-accent" id="hdr-pct">—</span>
+      </div>
+      <div class="header-stat">
+        <span class="hs-label">Tasks</span>
+        <span class="hs-val" id="hdr-tasks">—</span>
+      </div>
+      <div class="search-wrap">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input class="search-input" id="global-search" placeholder="Search equipment or task…" oninput="handleSearch(this.value)">
+      </div>
+      <button class="btn btn-success btn-sm" id="pdf-main-btn" onclick="generatePDF()" disabled>
+        <i class="fa-solid fa-file-arrow-down"></i> Export PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- ═══════════════════════
+         DASHBOARD VIEW
+    ═══════════════════════ -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-head">
+        <div>
+          <div class="page-title" id="dash-title">Dashboard</div>
+          <div class="page-sub" id="dash-sub">Monthly preventive maintenance overview</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-ghost btn-sm" onclick="switchView('schedule',document.querySelector('[data-view=schedule]'))">
+            <i class="fa-solid fa-calendar-check"></i> Open Schedule
+          </button>
+        </div>
+      </div>
+
+      <!-- April Kickoff -->
+      <div id="kickoff-banner" class="kickoff-card" style="display:none">
+        <div class="kickoff-icon">📋</div>
+        <div>
+          <div class="kickoff-date"><i class="fa-solid fa-flag"></i> April 6, 2026 — Kickoff Day</div>
+          <div class="kickoff-title">General Inspection &amp; Material Review</div>
+          <div class="kickoff-desc">Initial walkthrough of all equipment. Verify tools, consumables and documentation. April 6 is a Monday — operational activities begin this same day.</div>
+        </div>
+      </div>
+
+      <!-- KPI Row 1 -->
+      <div class="g4" id="kpi-row1">
+        <div class="kpi kpi-accent">
+          <div class="kpi-label"><i class="fa-solid fa-bullseye"></i> Total Progress</div>
+          <div class="kpi-val" id="k-pct">0%</div>
+          <div class="kpi-sub" id="k-pct-sub">0 of 0 tasks complete</div>
+          <div class="prog-wrap mt12"><div class="prog-fill prog-blue" id="k-prog-bar" style="width:0%"></div></div>
+        </div>
+        <div class="kpi kpi-green">
+          <div class="kpi-label"><i class="fa-solid fa-circle-check"></i> Completed</div>
+          <div class="kpi-val" id="k-done">0</div>
+          <div class="kpi-sub">tasks finished</div>
+        </div>
+        <div class="kpi kpi-amber">
+          <div class="kpi-label"><i class="fa-solid fa-hourglass-half"></i> Pending</div>
+          <div class="kpi-val" id="k-pending">0</div>
+          <div class="kpi-sub">tasks remaining</div>
+        </div>
+        <div class="kpi kpi-red">
+          <div class="kpi-label"><i class="fa-solid fa-triangle-exclamation"></i> Incidents</div>
+          <div class="kpi-val" id="k-incidents">0</div>
+          <div class="kpi-sub">reported this month</div>
+        </div>
+      </div>
+
+      <!-- KPI Row 2 -->
+      <div class="g4 mt12">
+        <div class="kpi">
+          <div class="kpi-label"><i class="fa-regular fa-clock"></i> Est. Hours</div>
+          <div class="kpi-val" id="k-est" style="color:var(--text)">—</div>
+          <div class="kpi-sub">total scheduled</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label"><i class="fa-solid fa-stopwatch"></i> Real Hours</div>
+          <div class="kpi-val" id="k-real" style="color:var(--text)">—</div>
+          <div class="kpi-sub">logged so far</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label"><i class="fa-solid fa-arrows-up-down"></i> Deviation</div>
+          <div class="kpi-val" id="k-dev">—</div>
+          <div class="kpi-sub" id="k-dev-sub">vs estimate</div>
+        </div>
+        <div class="kpi kpi-purple">
+          <div class="kpi-label"><i class="fa-solid fa-layer-group"></i> Equipment Groups</div>
+          <div class="kpi-val" id="k-equip">0</div>
+          <div class="kpi-sub">active this month</div>
+        </div>
+      </div>
+
+      <!-- Charts + Next Month -->
+      <div class="g21 mt16">
+        <div class="g2">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><i class="fa-solid fa-chart-pie"></i> Completion Status</span>
+            </div>
+            <div class="card-body"><div class="chart-h240"><canvas id="chart-donut"></canvas></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><i class="fa-solid fa-chart-column"></i> Hours: Est vs Real</span>
+            </div>
+            <div class="card-body"><div class="chart-h240"><canvas id="chart-hours"></canvas></div></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="card" style="flex:1">
+            <div class="card-header">
+              <span class="card-title"><i class="fa-solid fa-forward"></i> Next Month Preview</span>
+              <span class="badge badge-blue" id="next-month-badge">—</span>
+            </div>
+            <div class="card-body" id="next-month-content" style="overflow-y:auto;max-height:240px"></div>
+          </div>
+          <div class="card" style="flex:1">
+            <div class="card-header">
+              <span class="card-title"><i class="fa-solid fa-shield-halved"></i> Active Warnings</span>
+              <span class="badge badge-incident" id="warn-count-badge" style="display:none">0</span>
+            </div>
+            <div class="card-body" id="warnings-content" style="overflow-y:auto;max-height:200px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Equipment Progress List -->
+      <div class="card mt16">
+        <div class="card-header">
+          <span class="card-title"><i class="fa-solid fa-list-check"></i> Equipment Progress This Month</span>
+        </div>
+        <div class="card-body-sm" id="equip-progress-list"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════
+         SCHEDULE VIEW
+    ═══════════════════════ -->
+    <div class="view" id="view-schedule">
+      <div class="page-head">
+        <div>
+          <div class="page-title" id="sched-title">Maintenance Schedule</div>
+          <div class="page-sub" id="sched-sub">Tasks grouped by equipment</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-ghost btn-sm" onclick="expandAll()"><i class="fa-solid fa-expand"></i> Expand All</button>
+          <button class="btn btn-ghost btn-sm" onclick="collapseAll()"><i class="fa-solid fa-compress"></i> Collapse All</button>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar" id="sched-filters">
+        <button class="flt-tag active" data-filter="all" onclick="setFilter('all',this)">All</button>
+        <button class="flt-tag" data-filter="pending" onclick="setFilter('pending',this)">Pending</button>
+        <button class="flt-tag" data-filter="progress" onclick="setFilter('progress',this)">In Progress</button>
+        <button class="flt-tag" data-filter="done" onclick="setFilter('done',this)">Completed</button>
+        <button class="flt-tag" data-filter="incidents" onclick="setFilter('incidents',this)">Has Incidents</button>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <select class="flt-select" id="equip-filter" onchange="applyEquipFilter()">
+            <option value="">All Equipment</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="schedule-content"></div>
+    </div>
+
+    <!-- ═══════════════════════
+         ANALYSIS VIEW
+    ═══════════════════════ -->
+    <div class="view" id="view-analysis">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Analysis &amp; KPIs</div>
+          <div class="page-sub">Performance metrics, deviations and trends</div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-header"><span class="card-title"><i class="fa-solid fa-chart-bar"></i> Progress by Equipment</span></div>
+          <div class="card-body"><div class="chart-h240"><canvas id="chart-equip"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title"><i class="fa-solid fa-triangle-exclamation"></i> Incidents by Equipment</span></div>
+          <div class="card-body"><div class="chart-h240"><canvas id="chart-inc"></canvas></div></div>
+        </div>
+      </div>
+
+      <div class="card mt16">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-chart-line"></i> Monthly Trend — <span id="trend-year-label">2026</span></span></div>
+        <div class="card-body"><div class="chart-h200"><canvas id="chart-trend"></canvas></div></div>
+      </div>
+
+      <div class="g2 mt16">
+        <div class="card">
+          <div class="card-header"><span class="card-title"><i class="fa-solid fa-medal"></i> Equipment Deviation Ranking</span></div>
+          <div class="card-body" id="deviation-ranking"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title"><i class="fa-solid fa-table"></i> Hours Detail</span></div>
+          <div class="card-body" style="padding:0;overflow-x:auto">
+            <table class="tbl">
+              <thead><tr><th>Equipment</th><th>Est</th><th>Real</th><th>Dev</th><th>Status</th></tr></thead>
+              <tbody id="hours-tbl-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════
+         HISTORY VIEW
+    ═══════════════════════ -->
+    <div class="view" id="view-history">
+      <div class="page-head">
+        <div>
+          <div class="page-title">History &amp; Records</div>
+          <div class="page-sub">Full log of all months, incidents and observations</div>
+        </div>
+      </div>
+
+      <div class="g2 mt12" style="margin-bottom:16px">
+        <div>
+          <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:5px">FILTER BY MONTH</label>
+          <select class="flt-select" style="width:100%" id="hist-month-filter" onchange="renderHistory()">
+            <option value="">All months</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:5px">FILTER BY EQUIPMENT</label>
+          <select class="flt-select" style="width:100%" id="hist-equip-filter" onchange="renderHistory()">
+            <option value="">All equipment</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="g21">
+        <div>
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i class="fa-solid fa-timeline"></i> Monthly Summary</span></div>
+            <div class="card-body" style="overflow-y:auto;max-height:400px">
+              <div class="timeline" id="history-timeline"></div>
+            </div>
+          </div>
+          <div class="card mt16">
+            <div class="card-header"><span class="card-title"><i class="fa-solid fa-file-lines"></i> Incident Log</span></div>
+            <div class="card-body" style="padding:0;overflow-x:auto">
+              <table class="tbl">
+                <thead><tr><th>Month</th><th>Equipment</th><th>Machine</th><th>Note</th></tr></thead>
+                <tbody id="history-incidents-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i class="fa-regular fa-calendar"></i> Select Month</span></div>
+            <div class="month-grid" id="month-picker-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════
+         WEEKLY VIEW
+    ═══════════════════════ -->
+    <div class="view" id="view-weekly">
+      <div class="page-head">
+        <div>
+          <div class="page-title" id="weekly-title">Weekly Schedule</div>
+          <div class="page-sub" id="weekly-sub">Distributed by Monday — 3h capacity per week</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-ghost btn-sm" onclick="expandAllWeeks()"><i class="fa-solid fa-expand"></i> Expand All</button>
+          <button class="btn btn-ghost btn-sm" onclick="collapseAllWeeks()"><i class="fa-solid fa-compress"></i> Collapse All</button>
+        </div>
+      </div>
+
+      <!-- Weekly summary bar -->
+      <div id="weekly-summary-wrap"></div>
+
+      <!-- Week blocks -->
+      <div id="weekly-content"></div>
+    </div>
+
+    <!-- ═══════════════════════
+         CONFIG VIEW
+    ═══════════════════════ -->
+    <div class="view" id="view-config">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Equipment Setup</div>
+          <div class="page-sub">Register serial numbers and configure machines</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-danger btn-sm" onclick="clearAllData()">
+            <i class="fa-solid fa-trash"></i> Reset All Data
+          </button>
+        </div>
+      </div>
+      <div class="alert alert-warn mt12">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>Machines without a serial number will trigger warnings in the schedule and analysis views.</span>
+      </div>
+      <div class="cfg-grid mt16" id="config-grid"></div>
+
+      <!-- ── Maintenance Day Settings ── -->
+      <div class="divider"></div>
+      <div style="margin-bottom:8px">
+        <div style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">
+          <i class="fa-solid fa-calendar-days" style="color:var(--accent)"></i>
+          Maintenance Day Settings
+        </div>
+        <div style="font-size:13px;color:var(--text3);margin-top:3px">Configure which day of the week maintenance is performed. Affects weekly schedule, Gantt and PDF.</div>
+      </div>
+
+      <div class="mds-card">
+        <div class="mds-title"><i class="fa-solid fa-gear" style="color:var(--accent)"></i> Configure Maintenance Day</div>
+        <div class="mds-sub">Select the day, scope and year. The schedule will recalculate automatically when you apply.</div>
+
+        <div class="mds-grid">
+          <div class="mds-field">
+            <label class="mds-label">Day of the Week</label>
+            <select class="mds-select" id="mds-day">
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+              <option value="0">Sunday</option>
+            </select>
+          </div>
+          <div class="mds-field">
+            <label class="mds-label">Year</label>
+            <select class="mds-select" id="mds-year">
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+              <option value="2028">2028</option>
+              <option value="2029">2029</option>
+              <option value="2030">2030</option>
+            </select>
+          </div>
+          <div class="mds-field">
+            <label class="mds-label">Month (if month-only)</label>
+            <select class="mds-select" id="mds-month">
+              <option value="">— All months —</option>
+              <option value="0">January</option>
+              <option value="1">February</option>
+              <option value="2">March</option>
+              <option value="3">April</option>
+              <option value="4">May</option>
+              <option value="5">June</option>
+              <option value="6">July</option>
+              <option value="7">August</option>
+              <option value="8">September</option>
+              <option value="9">October</option>
+              <option value="10">November</option>
+              <option value="11">December</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mds-field" style="margin-bottom:16px">
+          <label class="mds-label">Scope</label>
+          <div class="mds-radio-group">
+            <label class="mds-radio-item">
+              <input type="radio" name="mds-scope" value="month" id="mds-scope-month">
+              Apply only to the selected month
+            </label>
+            <label class="mds-radio-item">
+              <input type="radio" name="mds-scope" value="year" id="mds-scope-year" checked>
+              Apply to the entire year
+            </label>
+          </div>
+        </div>
+
+        <div id="mds-preview" style="margin-bottom:14px"></div>
+
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn btn-primary" onclick="applyMaintenanceDay()">
+            <i class="fa-solid fa-rotate"></i> Apply Changes
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="resetMaintenanceDays()">
+            <i class="fa-solid fa-undo"></i> Reset to Monday (default)
+          </button>
+          <span id="mds-saved-msg" style="font-size:12px;color:var(--green);display:none">
+            <i class="fa-solid fa-circle-check"></i> Saved & schedule updated
+          </span>
+        </div>
+      </div>
+
+      <!-- Current schedule overview -->
+      <div class="mds-card">
+        <div class="mds-title"><i class="fa-solid fa-calendar-week" style="color:var(--text3)"></i> Current Maintenance Day Configuration</div>
+        <table class="day-schedule-table">
+          <thead><tr><th>Month</th><th>Day Configured</th><th>Next Occurrence</th><th>Available Dates</th></tr></thead>
+          <tbody id="mds-overview-body"></tbody>
+        </table>
+      </div>
+
+    </div><!-- /view-config -->
+
+    <!-- ═══════════════════════
+         PARTS & INVENTORY VIEW
+    ═══════════════════════ -->
+    <div class="view" id="view-parts">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Parts &amp; Inventory Management</div>
+          <div class="page-sub">Track spare parts linked to equipment activities</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary btn-sm" onclick="openAddPartModal()">
+            <i class="fa-solid fa-plus"></i> Add Part
+          </button>
+        </div>
+      </div>
+      <!-- Stock summary -->
+      <div class="g4 mt0" id="parts-kpi-row"></div>
+      <!-- Filter -->
+      <div class="filter-bar mt16">
+        <select class="flt-select" id="parts-equip-filter" onchange="renderParts()">
+          <option value="">All Equipment</option>
+        </select>
+        <button class="flt-tag active" data-pf="all" onclick="setPartsFilter('all',this)">All</button>
+        <button class="flt-tag" data-pf="ok" onclick="setPartsFilter('ok',this)">In Stock</button>
+        <button class="flt-tag" data-pf="low" onclick="setPartsFilter('low',this)">Low Stock</button>
+        <button class="flt-tag" data-pf="out" onclick="setPartsFilter('out',this)">Out of Stock</button>
+      </div>
+      <!-- Parts table -->
+      <div class="card">
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table class="tbl" id="parts-table">
+            <thead>
+              <tr>
+                <th>Part Name</th>
+                <th>Equipment</th>
+                <th>Qty</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Purchase Link</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="parts-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Usage History -->
+      <div class="card mt16">
+        <div class="card-header"><span class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Parts Usage History</span></div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>Date</th><th>Part</th><th>Equipment</th><th>Qty Used</th><th>Month</th></tr></thead>
+            <tbody id="parts-history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Part Modal -->
+    <div id="part-modal" class="part-modal-overlay">
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:24px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <span style="font-size:16px;font-weight:700" id="part-modal-title">Add Part</span>
+          <button class="btn btn-ghost btn-sm" onclick="closePartModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div>
+            <label class="field-label">Part Name *</label>
+            <input class="field-input" id="pm-name" placeholder="e.g. Conveyor Belt Chain">
+          </div>
+          <div>
+            <label class="field-label">Equipment</label>
+            <select class="field-input" id="pm-equip"></select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label class="field-label">Quantity</label>
+              <input class="field-input" id="pm-qty" type="number" min="0" value="1">
+            </div>
+            <div>
+              <label class="field-label">Low Stock Alert At</label>
+              <input class="field-input" id="pm-low" type="number" min="1" value="2">
+            </div>
+          </div>
+          <div>
+            <label class="field-label">Purchase Link (URL)</label>
+            <input class="field-input" id="pm-url" placeholder="https://...">
+          </div>
+          <div>
+            <label class="field-label">Notes</label>
+            <textarea class="field-input" id="pm-notes" rows="2" placeholder="Optional notes, specs, supplier..."></textarea>
+          </div>
+          <input type="hidden" id="pm-edit-id">
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+          <button class="btn btn-ghost" onclick="closePartModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="savePart()"><i class="fa-solid fa-floppy-disk"></i> Save Part</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════
+         GANTT VIEW
+    ═══════════════════════ -->
+    <div class="view" id="view-gantt">
+      <div class="page-head">
+        <div>
+          <div class="page-title" id="gantt-title">Gantt View</div>
+          <div class="page-sub" id="gantt-sub">Visual schedule by week — executive overview</div>
+        </div>
+        <div class="page-actions">
+          <span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:10px">
+            <span class="badge badge-pending">Pending</span>
+            <span class="badge badge-progress">In Progress</span>
+            <span class="badge badge-done">Done</span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border-radius:50px;background:var(--redBg);color:var(--red);border:1px solid var(--redBdr)"><i class="fa-solid fa-triangle-exclamation"></i> Delayed</span>
+          </span>
+        </div>
+      </div>
+      <div id="gantt-content"></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main-area -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DATA — Equipment master configuration
+   Structure designed for future API integration
+═══════════════════════════════════════════════════════════ */
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/**
+ * EQUIPMENT MASTER DATA
+ * Each entry represents an equipment group.
+ * hours[]: estimated hours per month (0 = not active)
+ * activeMonths[]: months where this equipment is scheduled (0-based)
+ * tasks(month): function returning task list for given month
+ */
+const EQUIPMENT = [
+  {
+    id:'php500', name:'Pressure Henny Penny PFE-500', machines:4,
+    hours:[1,.75,.75,1,.75,.75,1,.75,.75,1,.75,.75],
+    activeMonths:[0,1,2,3,4,5,6,7,8,9,10,11],
+    tasks(m){
+      const t=['Lubricate spindle threads and ball seat','Inspect cross arm for cracks','Inspect unit for worn/missing parts','Inspect pump assembly parts for wear/build-up','Inspect pump seal for leakage','Inspect collar pin for breakage/reset pin','Clean underside of Henny (One Henny a month)'];
+      if([0,3,6,9].includes(m)){t.push('Reverse lid gasket (Replace if needed)','Inspect limit stop adjustments','Inspect and tighten element spreaders')}
+      if(m===9)t.push('Remove and clean safety relief valve');
+      return t;
+    }
+  },
+  {
+    id:'ohp410', name:'Open Henny Penny 410/420', machines:2,
+    hours:[1,1,1.25,1,1,1.25,1,1,1.25,1,1,1.25],
+    activeMonths:[0,1,2,3,4,5,6,7,8,9,10,11],
+    tasks(m){
+      const t=['Inspect unit for worn/missing parts','Inspect pump assembly parts for wear/build-up','Inspect pump seal for leakage','Clean underside of Henny (One Henny a month)'];
+      if([2,5,8,11].includes(m)){t.push('Inspect filter pan o-rings','Inspect oil reservoir o-ring','Inspect and tighten element spreaders')}
+      return t;
+    }
+  },
+  {
+    id:'nhp415', name:'Narrow Henny Penny 415', machines:3,
+    hours:[1.25,1,1,1.25,1,1,1.25,1,1,1.25,1,1],
+    activeMonths:[0,1,2,3,4,5,6,7,8,9,10,11],
+    tasks(m){
+      const t=['Inspect unit for worn/missing parts','Inspect pump assembly parts for wear/build-up','Inspect pump seal for leakage','Clean underside of Henny (One Henny a month)'];
+      if([0,3,6,9].includes(m)){t.push('Inspect filter pan o-rings','Inspect oil reservoir o-ring','Inspect and tighten element spreaders')}
+      return t;
+    }
+  },
+  {
+    id:'vct2', name:'Antunes VCT-2 (Bun)', machines:2,
+    hours:[0,1.5,0,0,1.5,0,0,1.5,0,0,1.5,0],
+    activeMonths:[1,4,7,10],
+    tasks:()=>['Clean the conveyor belt chains','Inspect conveyor belt chains for stretching','Clean fan at the back of the unit','Inspect gears and drive chain for wear','Replace Silicon wavy belt','Inspect unit for missing/worn parts','Remove belt chain and clean inside unit']
+  },
+  {
+    id:'rt2', name:'Antunes RT-2 (Breakfast)', machines:2,
+    hours:[0,0,.75,0,0,.75,0,0,.75,0,0,.75],
+    activeMonths:[2,5,8,11],
+    tasks:()=>['Inspect conveyor belt chain for good condition','Inspect conveyor belt for tension','Inspect unit for missing/worn parts','Clean outside unit/conveyor belt','Inspect drive chain tension','Clean top and bottom fans at rear of unit','Replace air curtains']
+  },
+  {
+    id:'garland', name:'Garland Grill', machines:2,
+    hours:[.25,.5,.25,.25,.5,.25,.25,.5,.25,.25,.5,.25],
+    activeMonths:[0,1,2,3,4,5,6,7,8,9,10,11],
+    tasks(m){
+      const t=['Inspect/replace grill roller','Inspect/replace grill brush head','Deep clean of unit'];
+      if([1,4,7,10].includes(m)){t.push('Inspect unit for wear/missing parts','Inspect slope of casters','Inspect grates for warping/cracking')}
+      return t;
+    }
+  },
+  {
+    id:'pitco', name:'Pitco Rethermalizer', machines:1,
+    hours:[.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5,.5],
+    activeMonths:[0,1,2,3,4,5,6,7,8,9,10,11],
+    tasks:()=>['Descale unit','Inspect unit for wear/missing parts']
+  },
+  {
+    id:'vector', name:'Vector Ovens', machines:2,
+    hours:[0,1,0,1,0,1,0,1,0,1,0,1],
+    activeMonths:[1,3,5,7,9,11],
+    tasks:()=>['Clean inside/outside of unit','Clean filters']
+  }
+];
+
+/* ═══════════════════════════════════════════════════════════
+   STATE & PERSISTENCE
+   Designed for future backend integration — see exportData()
+═══════════════════════════════════════════════════════════ */
+let currentMonth = new Date().getMonth();
+let currentYear  = new Date().getFullYear();
+let activeFilter = 'all';
+let equipFilter  = '';
+let searchQuery  = '';
+let charts = {};
+
+const S = {
+  get(){ try{return JSON.parse(localStorage.getItem('pmState')||'{}')}catch{return{}} },
+  set(s){ localStorage.setItem('pmState',JSON.stringify(s)) },
+  // Key builders
+  taskKey:(y,m,eid,mi,ti) => `t_${y}_${m}_${eid}_${mi}_${ti}`,
+  timeKey:(y,m,eid,mi)  => `h_${y}_${m}_${eid}_${mi}`,
+  notesKey:(y,m,eid,mi) => `n_${y}_${m}_${eid}_${mi}`,
+  serialKey:(eid,mi)    => `s_${eid}_${mi}`,
+};
+
+// Future-ready export function (hook for API/Excel integration)
+function exportData(){
+  return { version:'1.0', exported: new Date().toISOString(), state: S.get() };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════════════════ */
+function fmtH(h){
+  if(!h||isNaN(h)) return '0h';
+  const hrs=Math.floor(h), mins=Math.round((h-hrs)*60);
+  if(!hrs) return `${mins}m`;
+  if(!mins) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+}
+function getActive(m){ return EQUIPMENT.filter(e=>e.activeMonths.includes(m)); }
+
+/* ═══════════════════════════════════════════════════════════
+   STATS COMPUTATION
+═══════════════════════════════════════════════════════════ */
+function monthStats(m, y){  y=y||currentYear;
+  const s=S.get(); const active=getActive(m);
+  let total=0,done=0,incidents=0,est=0,real=0;
+  active.forEach(e=>{
+    const tasks=e.tasks(m); est+=e.hours[m]*e.machines;
+    for(let mi=0;mi<e.machines;mi++){
+      tasks.forEach((_,ti)=>{ total++; if(s[S.taskKey(y,m,e.id,mi,ti)]) done++; });
+      real+=parseFloat(s[S.timeKey(y,m,e.id,mi)]||0);
+      if((s[S.notesKey(y,m,e.id,mi)]||'').trim()) incidents++;
+    }
+  });
+  const pct=total?Math.round(done/total*100):0;
+  return {total,done,incidents,est,real,pct,activeEquip:active.length,pending:total-done};
+}
+
+function equipStats(m,e,y){  y=y||currentYear;
+  const s=S.get(); const tasks=e.tasks(m);
+  let total=0,done=0,real=0,incidents=0;
+  for(let mi=0;mi<e.machines;mi++){
+    tasks.forEach((_,ti)=>{ total++; if(s[S.taskKey(y,m,e.id,mi,ti)]) done++; });
+    real+=parseFloat(s[S.timeKey(y,m,e.id,mi)]||0);
+    if((s[S.notesKey(y,m,e.id,mi)]||'').trim()) incidents++;
+  }
+  const pct=total?Math.round(done/total*100):0;
+  const status=pct===0?'pending':pct===100?'done':'progress';
+  const est=e.hours[m]*e.machines;
+  const dev=real-est;
+  const riskHigh=real>0&&dev/est>0.2;
+  const riskMed=real>0&&dev/est>0.1&&!riskHigh;
+  return {total,done,pct,status,real,est,dev,incidents,riskHigh,riskMed};
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER — DASHBOARD
+═══════════════════════════════════════════════════════════ */
+function renderDashboard(){
+  const stats=monthStats(currentMonth,currentYear);
+  document.getElementById('dash-title').textContent=MONTHS[currentMonth]+' '+currentYear+' — Dashboard';
+  document.getElementById('kickoff-banner').style.display=(currentMonth===3&&currentYear===2026)?'flex':'none';
+
+  // KPIs
+  document.getElementById('k-pct').textContent=stats.pct+'%';
+  document.getElementById('k-pct-sub').textContent=`${stats.done} of ${stats.total} tasks complete`;
+  document.getElementById('k-prog-bar').style.width=stats.pct+'%';
+  document.getElementById('k-done').textContent=stats.done;
+  document.getElementById('k-pending').textContent=stats.pending;
+  document.getElementById('k-incidents').textContent=stats.incidents;
+  document.getElementById('k-est').textContent=fmtH(stats.est);
+  document.getElementById('k-real').textContent=fmtH(stats.real);
+  document.getElementById('k-equip').textContent=stats.activeEquip;
+  const dev=stats.real-stats.est;
+  const devEl=document.getElementById('k-dev');
+  devEl.textContent=(dev>0?'+':'')+fmtH(Math.abs(dev));
+  devEl.style.color=dev>0?'var(--red)':dev<0?'var(--green)':'var(--text)';
+  document.getElementById('k-dev-sub').textContent=dev>0?'over estimate':dev<0?'under estimate':'on target';
+
+  // Header stats
+  document.getElementById('hdr-pct').textContent=stats.pct+'%';
+  document.getElementById('hdr-tasks').textContent=`${stats.done}/${stats.total}`;
+  document.getElementById('pdf-main-btn').disabled=stats.pct<100||stats.total===0;
+
+  // Sidebar badge
+  const badge=document.getElementById('sb-pending-badge');
+  badge.textContent=stats.pending;
+  badge.style.display=stats.pending>0?'inline-flex':'none';
+
+  renderDonut(stats);
+  renderHoursBar();
+  renderNextMonth();
+  renderWarnings();
+  renderEquipProgressList();
+}
+
+function renderDonut(stats){
+  const ctx=document.getElementById('chart-donut').getContext('2d');
+  if(charts.donut) charts.donut.destroy();
+  charts.donut=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:['Completed','Pending'],
+      datasets:[{data:[stats.done,stats.pending],backgroundColor:['#10b981','#1d2335'],borderColor:['#059669','#252d42'],borderWidth:2,hoverOffset:6}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'74%',
+      plugins:{
+        legend:{position:'bottom',labels:{color:'#8892a4',font:{family:'Inter',size:12},padding:16}},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed}`}}
+      }
+    }
+  });
+}
+
+function renderHoursBar(){
+  const ctx=document.getElementById('chart-hours').getContext('2d');
+  if(charts.hours) charts.hours.destroy();
+  const active=getActive(currentMonth);
+  const labels=active.map(e=>e.name.split(' ').slice(-2).join(' '));
+  const est=active.map(e=>+(e.hours[currentMonth]*e.machines).toFixed(2));
+  const real=active.map(e=>{
+    const s=S.get(); let r=0;
+    for(let mi=0;mi<e.machines;mi++) r+=parseFloat(s[S.timeKey(currentYear,currentMonth,e.id,mi)]||0);
+    return +r.toFixed(2);
+  });
+  charts.hours=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Estimated',data:est,backgroundColor:'#1e3a6e',borderRadius:4,borderSkipped:false},
+      {label:'Real',data:real,backgroundColor:'#10b981',borderRadius:4,borderSkipped:false}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8892a4',font:{family:'Inter',size:11}}}},
+      scales:{
+        x:{ticks:{color:'#8892a4',font:{size:10}},grid:{color:'#1d2335'}},
+        y:{ticks:{color:'#8892a4'},grid:{color:'#1d2335'},beginAtZero:true}
+      }
+    }
+  });
+}
+
+function renderNextMonth(){
+  const next=(currentMonth+1)%12;
+  const active=getActive(next);
+  const el=document.getElementById('next-month-content');
+  document.getElementById('next-month-badge').textContent=MONTHS_SHORT[next];
+  if(!active.length){el.innerHTML='<div class="no-data"><div class="no-data-ico">📭</div>No scheduled activities.</div>';return;}
+  el.innerHTML=active.map(e=>`
+    <div class="preview-item">
+      <div class="preview-name">${e.name} <span class="muted" style="font-weight:400">· ${e.machines} machine${e.machines>1?'s':''} · ${fmtH(e.hours[next]*e.machines)}</span></div>
+      ${e.tasks(next).slice(0,3).map(t=>`<div class="preview-task">${t}</div>`).join('')}
+      ${e.tasks(next).length>3?`<div class="preview-task text-accent">+${e.tasks(next).length-3} more</div>`:''}
+    </div>`).join('');
+}
+
+function renderWarnings(){
+  const s=S.get(); const warns=[];
+  // Serial warnings
+  EQUIPMENT.forEach(e=>{
+    for(let mi=0;mi<e.machines;mi++){
+      if(!s[S.serialKey(e.id,mi)]) warns.push({type:'warn',msg:`<b>${e.name}</b> — Machine ${mi+1}: no serial assigned`});
+    }
+  });
+  // Hour deviation warnings
+  getActive(currentMonth).forEach(e=>{
+    const st=equipStats(currentMonth,e,currentYear);
+    if(st.riskHigh) warns.push({type:'danger',msg:`<b>${e.name}</b>: real hours exceed estimate by >20% — review workload`});
+    else if(st.riskMed) warns.push({type:'warn',msg:`<b>${e.name}</b>: real hours approaching estimate limit`});
+    if(st.incidents>0) warns.push({type:'incident',msg:`<b>${e.name}</b>: ${st.incidents} incident(s) logged this month`});
+  });
+  const badge=document.getElementById('warn-count-badge');
+  badge.textContent=warns.length; badge.style.display=warns.length?'inline-flex':'none';
+  const el=document.getElementById('warnings-content');
+  if(!warns.length){el.innerHTML='<div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> No warnings for this month.</div>';return;}
+  el.innerHTML=warns.map(w=>`<div class="alert alert-${w.type==='danger'?'danger':w.type==='incident'?'warn':'warn'}"><i class="fa-solid fa-${w.type==='danger'?'circle-xmark':'triangle-exclamation'}"></i><span>${w.msg}</span></div>`).join('');
+}
+
+function renderEquipProgressList(){
+  const active=getActive(currentMonth);
+  const el=document.getElementById('equip-progress-list');
+  if(!active.length){el.innerHTML='<div class="no-data"><div class="no-data-ico">📭</div>No equipment this month.</div>';return;}
+  el.innerHTML=active.map(e=>{
+    const st=equipStats(currentMonth,e,currentYear);
+    const pColor=st.pct===100?'prog-green':st.pct>0?'prog-amber':'prog-blue';
+    const badge=st.status==='done'?'badge-done':st.status==='progress'?'badge-progress':'badge-pending';
+    const riskEl=st.riskHigh?'<span class="risk-pill risk-high"><i class="fa-solid fa-fire"></i> High Deviation</span>':st.riskMed?'<span class="risk-pill risk-med"><i class="fa-solid fa-bolt"></i> Watch</span>':'';
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;font-weight:600;min-width:230px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</span>
+      <span class="badge ${badge}" style="flex-shrink:0">${st.status==='done'?'✓ Done':st.status==='progress'?'In Progress':'Pending'}</span>
+      <div class="prog-wrap" style="flex:1"><div class="prog-fill ${pColor}" style="width:${st.pct}%"></div></div>
+      <span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;min-width:38px;text-align:right;color:${st.pct===100?'var(--green)':st.pct>0?'var(--amber)':'var(--text3)'}">${st.pct}%</span>
+      <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;min-width:40px;text-align:right">${fmtH(st.est)}</span>
+      ${riskEl}
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER — SCHEDULE
+═══════════════════════════════════════════════════════════ */
+function renderSchedule(){
+  const s=S.get();
+  let active=getActive(currentMonth);
+  if(equipFilter) active=active.filter(e=>e.id===equipFilter);
+  if(searchQuery){
+    const q=searchQuery.toLowerCase();
+    active=active.filter(e=>e.name.toLowerCase().includes(q)||e.tasks(currentMonth).some(t=>t.toLowerCase().includes(q)));
+  }
+  // Status filter
+  if(activeFilter!=='all'){
+    active=active.filter(e=>{
+      const st=equipStats(currentMonth,e,currentYear);
+      if(activeFilter==='incidents'){
+        for(let mi=0;mi<e.machines;mi++) if((s[S.notesKey(currentMonth,e.id,mi)]||'').trim()) return true;
+        return false;
+      }
+      return st.status===activeFilter;
+    });
+  }
+
+  document.getElementById('sched-title').textContent=MONTHS[currentMonth]+' '+currentYear+' — Schedule';
+  document.getElementById('sched-sub').textContent=`${active.length} equipment group${active.length!==1?'s':''} · Mondays`;
+
+  const container=document.getElementById('schedule-content');
+  if(!active.length){container.innerHTML='<div class="no-data"><div class="no-data-ico">📭</div>No activities match current filters.</div>';return;}
+  container.innerHTML=active.map(e=>buildEquipCard(e,s)).join('');
+}
+
+function buildEquipCard(e,s){
+  const st=equipStats(currentMonth,e,currentYear);
+  const pColor=st.pct===100?'prog-green':st.pct>0?'prog-amber':'prog-blue';
+  const badge=`<span class="badge equip-status-badge badge-${st.status}">${st.status==='done'?'<i class="fa-solid fa-check"></i> Done':st.status==='progress'?'In Progress':'Pending'}</span>`;
+  const riskEl=st.riskHigh?`<span class="risk-pill equip-risk-pill risk-high"><i class="fa-solid fa-fire"></i> High Risk</span>`:st.riskMed?`<span class="risk-pill equip-risk-pill risk-med"><i class="fa-solid fa-bolt"></i> Watch</span>`:'<span class="risk-pill equip-risk-pill" style="display:none"></span>';
+
+  return `
+  <div class="equip-card status-${st.status}" id="eq-${e.id}">
+    <div class="equip-head" onclick="toggleEquip('${e.id}')">
+      <div class="equip-head-left">
+        <span class="equip-name">${e.name}</span>
+        ${badge}
+        ${riskEl}
+        ${st.incidents>0?`<span class="badge badge-incident"><i class="fa-solid fa-triangle-exclamation"></i> ${st.incidents}</span>`:''}
+      </div>
+      <div class="equip-head-right">
+        <span style="font-size:11px;color:var(--text3)">${e.machines} unit${e.machines>1?'s':''}</span>
+        <span style="font-size:11px;color:var(--text3)">${fmtH(e.hours[currentMonth])}/unit</span>
+        <div class="equip-prog prog-wrap"><div class="prog-fill equip-prog-fill ${pColor}" style="width:${st.pct}%"></div></div>
+        <span class="equip-pct" style="color:${st.pct===100?'var(--green)':st.pct>0?'var(--amber)':'var(--text3)'}">${st.pct}%</span>
+        <i class="fa-solid fa-chevron-down equip-chevron"></i>
+      </div>
+    </div>
+    <div class="equip-body">
+      ${buildMachines(e,s)}
+    </div>
+  </div>`;
+}
+
+function buildMachines(e,s){
+  const tasks=e.tasks(currentMonth);
+  return Array.from({length:e.machines},(_,mi)=>{
+    const serial=s[S.serialKey(e.id,mi)]||'';
+    const realTime=s[S.timeKey(currentYear,currentMonth,e.id,mi)]||'';
+    const notes=s[S.notesKey(currentYear,currentMonth,e.id,mi)]||'';
+    const hasInc=notes.trim().length>0;
+    let done=0; tasks.forEach((_,ti)=>{if(s[S.taskKey(currentYear,currentMonth,e.id,mi,ti)])done++;});
+    const est=e.hours[currentMonth];
+    const rt=parseFloat(realTime)||0;
+    const dev=rt-est;
+    const devStr=rt>0?`<span class="${dev>0?'dev-over':'dev-under'}">${dev>0?'+':''}${fmtH(Math.abs(dev))}</span>`:'—';
+    const riskEl=rt>0&&dev/est>0.2?'<span class="risk-pill risk-high">High Dev</span>':rt>0&&dev/est>0.1?'<span class="risk-pill risk-med">Watch</span>':'';
+
+    return `
+    <div class="machine-wrap">
+      <div class="machine-head">
+        <div class="machine-label"><i class="fa-solid fa-microchip"></i> Machine ${mi+1} — ${done}/${tasks.length} tasks</div>
+        <div class="serial-field">
+          <span class="serial-label">Serial #</span>
+          <input class="serial-input ${!serial?'no-serial':''}" placeholder="Enter serial…" value="${serial}"
+            oninput="saveSerial('${e.id}',${mi},this.value)"
+            title="${!serial?'⚠ Serial not assigned':'Serial: '+serial}">
+        </div>
+      </div>
+      <div class="task-list">
+        ${tasks.map((task,ti)=>{
+          const isDone=!!s[S.taskKey(currentYear,currentMonth,e.id,mi,ti)];
+          return `<div class="task-row ${isDone?'done':''}" id="task-${e.id}-${mi}-${ti}" onclick="toggleTask('${e.id}',${mi},${ti})" style="transition:transform .12s,background .2s,border-color .2s">
+            <div class="task-chk"><i class="fa-solid fa-check"></i></div>
+            <span class="task-txt">${task}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="machine-footer">
+        <div class="time-wrap">
+          <span class="time-lbl"><i class="fa-regular fa-clock"></i> Real hrs:</span>
+          <input class="time-inp" type="number" min="0" step="0.25" placeholder="0.00" value="${realTime}"
+            oninput="saveTime('${e.id}',${mi},this.value)">
+        </div>
+        <textarea class="notes-inp ${hasInc?'incident':''}" rows="1"
+          placeholder="Incidents, findings, observations, missing materials…"
+          oninput="saveNotes('${e.id}',${mi},this.value)">${notes}</textarea>
+      </div>
+      <div class="hours-row">
+        <div class="hr-item"><span class="hr-lbl">Estimated</span><span class="hr-val">${fmtH(est)}</span></div>
+        <span class="hr-sep">|</span>
+        <div class="hr-item"><span class="hr-lbl">Real</span><span class="hr-val">${rt>0?fmtH(rt):'—'}</span></div>
+        <span class="hr-sep">|</span>
+        <div class="hr-item"><span class="hr-lbl">Deviation</span><span class="hr-val">${devStr}</span></div>
+        ${riskEl}
+        ${hasInc?'<span class="badge badge-incident" style="margin-left:auto"><i class="fa-solid fa-triangle-exclamation"></i> Incident logged</span>':''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIONS — Tasks
+═══════════════════════════════════════════════════════════ */
+function toggleTask(eid,mi,ti){
+  const s=S.get(); const key=S.taskKey(currentYear,currentMonth,eid,mi,ti);
+  s[key]=!s[key]; S.set(s);
+  // Update only the specific task row — no full re-render, no collapse
+  const rowEl=document.getElementById(`task-${eid}-${mi}-${ti}`);
+  if(rowEl){
+    const isDone=s[key];
+    rowEl.classList.toggle('done',isDone);
+    const chk=rowEl.querySelector('.task-chk');
+    if(chk){ chk.classList.toggle('checked-anim',isDone); }
+    // Ripple animation
+    rowEl.style.transform='scale(0.98)';
+    setTimeout(()=>rowEl.style.transform='',120);
+  }
+  // Update equip card status badge + progress without collapsing
+  updateEquipCardStatus(eid);
+  refreshDashboardKPIs();
+}
+function saveSerial(eid,mi,val){ const s=S.get(); s[S.serialKey(eid,mi)]=val; S.set(s); }
+function saveTime(eid,mi,val){ const s=S.get(); s[S.timeKey(currentYear,currentMonth,eid,mi)]=val; S.set(s); refreshDashboardKPIs(); }
+function saveNotes(eid,mi,val){ const s=S.get(); s[S.notesKey(currentYear,currentMonth,eid,mi)]=val; S.set(s); refreshDashboardKPIs(); }
+
+// Update equip card header (badge + progress bar) without collapsing
+function updateEquipCardStatus(eid){
+  const e=EQUIPMENT.find(x=>x.id===eid); if(!e) return;
+  const st=equipStats(currentMonth,e,currentYear);
+  const card=document.getElementById('eq-'+eid); if(!card) return;
+  // Update border class
+  card.classList.remove('status-done','status-progress','status-pending');
+  card.classList.add('status-'+st.status);
+  // Update badge
+  const badgeEl=card.querySelector('.equip-status-badge');
+  if(badgeEl){
+    badgeEl.className='badge equip-status-badge badge-'+(st.status==='done'?'done':st.status==='progress'?'progress':'pending');
+    badgeEl.innerHTML=st.status==='done'?'<i class="fa-solid fa-check"></i> Done':st.status==='progress'?'In Progress':'Pending';
+  }
+  // Update progress bar
+  const pbar=card.querySelector('.equip-prog-fill');
+  if(pbar){ pbar.style.width=st.pct+'%'; pbar.className='prog-fill equip-prog-fill '+(st.pct===100?'prog-green':st.pct>0?'prog-amber':'prog-blue'); }
+  // Update pct label
+  const pctEl=card.querySelector('.equip-pct');
+  if(pctEl){ pctEl.textContent=st.pct+'%'; pctEl.style.color=st.pct===100?'var(--green)':st.pct>0?'var(--amber)':'var(--text3)'; }
+  // Update risk
+  const riskEl=card.querySelector('.equip-risk-pill');
+  if(riskEl){
+    riskEl.style.display=(st.riskHigh||st.riskMed)?'flex':'none';
+    riskEl.className='risk-pill equip-risk-pill '+(st.riskHigh?'risk-high':'risk-med');
+    riskEl.innerHTML=st.riskHigh?'<i class="fa-solid fa-fire"></i> High Risk':'<i class="fa-solid fa-bolt"></i> Watch';
+  }
+}
+
+function refreshDashboardKPIs(){
+  const st=monthStats(currentMonth,currentYear);
+  document.getElementById('k-pct').textContent=st.pct+'%';
+  document.getElementById('k-pct-sub').textContent=`${st.done} of ${st.total} tasks complete`;
+  document.getElementById('k-prog-bar').style.width=st.pct+'%';
+  document.getElementById('k-done').textContent=st.done;
+  document.getElementById('k-pending').textContent=st.pending;
+  document.getElementById('k-incidents').textContent=st.incidents;
+  document.getElementById('k-real').textContent=fmtH(st.real);
+  document.getElementById('hdr-pct').textContent=st.pct+'%';
+  document.getElementById('hdr-tasks').textContent=`${st.done}/${st.total}`;
+  document.getElementById('pdf-main-btn').disabled=st.pct<100||st.total===0;
+  const badge=document.getElementById('sb-pending-badge');
+  badge.textContent=st.pending; badge.style.display=st.pending>0?'inline-flex':'none';
+}
+
+function toggleEquip(id){
+  const card=document.getElementById('eq-'+id);
+  if(card) card.classList.toggle('open');
+}
+function expandAll(){ document.querySelectorAll('.equip-card').forEach(c=>c.classList.add('open')); }
+function collapseAll(){ document.querySelectorAll('.equip-card').forEach(c=>c.classList.remove('open')); }
+
+/* ═══════════════════════════════════════════════════════════
+   FILTERS
+═══════════════════════════════════════════════════════════ */
+function setFilter(f,el){
+  activeFilter=f;
+  document.querySelectorAll('.flt-tag').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderSchedule();
+}
+function applyEquipFilter(){
+  equipFilter=document.getElementById('equip-filter').value;
+  renderSchedule();
+}
+function handleSearch(q){
+  searchQuery=q;
+  renderSchedule();
+}
+function populateEquipFilter(){
+  const sel=document.getElementById('equip-filter');
+  sel.innerHTML='<option value="">All Equipment</option>';
+  EQUIPMENT.forEach(e=>{ const o=document.createElement('option'); o.value=e.id; o.textContent=e.name; sel.appendChild(o); });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER — ANALYSIS
+═══════════════════════════════════════════════════════════ */
+function renderAnalysis(){
+  renderEquipChart(); renderIncChart(); renderTrendChart(); renderHoursTable(); renderDeviationRanking();
+  const tyl=document.getElementById('trend-year-label'); if(tyl) tyl.textContent=currentYear;
+}
+
+function renderEquipChart(){
+  const ctx=document.getElementById('chart-equip').getContext('2d');
+  if(charts.equip) charts.equip.destroy();
+  const active=getActive(currentMonth);
+  const labels=active.map(e=>e.name.split(' ').slice(-2).join(' '));
+  const pcts=active.map(e=>equipStats(currentMonth,e,currentYear).pct);
+  charts.equip=new Chart(ctx,{
+    type:'bar', indexAxis:'y',
+    data:{labels,datasets:[{label:'% Complete',data:pcts,backgroundColor:pcts.map(p=>p===100?'#10b981':p>0?'#f59e0b':'#252d40'),borderRadius:4}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{max:100,ticks:{color:'#8892a4',callback:v=>v+'%'},grid:{color:'#1d2335'}},
+        y:{ticks:{color:'#8892a4',font:{size:11}},grid:{display:false}}
+      }
+    }
+  });
+}
+
+function renderIncChart(){
+  const ctx=document.getElementById('chart-inc').getContext('2d');
+  if(charts.inc) charts.inc.destroy();
+  const s=S.get(); const active=getActive(currentMonth);
+  const labels=active.map(e=>e.name.split(' ').slice(-2).join(' '));
+  const counts=active.map(e=>{ let c=0; for(let mi=0;mi<e.machines;mi++) if((s[S.notesKey(currentMonth,e.id,mi)]||'').trim()) c++; return c; });
+  charts.inc=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'Incidents',data:counts,backgroundColor:'#ef4444',borderRadius:4}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#8892a4',font:{size:10}},grid:{display:false}},
+        y:{ticks:{color:'#8892a4',stepSize:1},grid:{color:'#1d2335'},beginAtZero:true}
+      }
+    }
+  });
+}
+
+function renderTrendChart(){
+  const ctx=document.getElementById('chart-trend').getContext('2d');
+  if(charts.trend) charts.trend.destroy();
+  const pcts=MONTHS_SHORT.map((_,m)=>monthStats(m,currentYear).pct);
+  charts.trend=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:MONTHS_SHORT,
+      datasets:[{
+        label:'Completion %',data:pcts,
+        borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',
+        tension:.4,fill:true,pointBackgroundColor:'#3b82f6',pointRadius:4,pointHoverRadius:6
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8892a4'}}},
+      scales:{
+        x:{ticks:{color:'#8892a4'},grid:{color:'#1d2335'}},
+        y:{max:100,ticks:{color:'#8892a4',callback:v=>v+'%'},grid:{color:'#1d2335'}}
+      }
+    }
+  });
+}
+
+function renderHoursTable(){
+  const active=getActive(currentMonth);
+  document.getElementById('hours-tbl-body').innerHTML=active.map(e=>{
+    const st=equipStats(currentMonth,e,currentYear);
+    const devStr=st.real>0?(st.dev>0?`<span class="dev-over">+${fmtH(st.dev)}</span>`:`<span class="dev-under">${fmtH(Math.abs(st.dev))}</span>`):'—';
+    const badge=`<span class="badge badge-${st.status}">${st.pct}%</span>`;
+    return `<tr><td style="font-weight:600">${e.name}</td><td class="tbl-mono">${fmtH(st.est)}</td><td class="tbl-mono">${st.real>0?fmtH(st.real):'—'}</td><td>${devStr}</td><td>${badge}</td></tr>`;
+  }).join('');
+}
+
+function renderDeviationRanking(){
+  const active=getActive(currentMonth);
+  const ranked=active.map(e=>{const st=equipStats(currentMonth,e,currentYear);return{name:e.name,dev:st.dev,est:st.est,real:st.real,pct:st.pct};})
+    .sort((a,b)=>Math.abs(b.dev)-Math.abs(a.dev));
+  const el=document.getElementById('deviation-ranking');
+  el.innerHTML=ranked.map((r,i)=>{
+    const devStr=r.real>0?(r.dev>0?`<span class="dev-over">+${fmtH(r.dev)}</span>`:`<span class="dev-under">${fmtH(Math.abs(r.dev))}</span>`):'<span class="muted">No data</span>';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text3);min-width:20px">#${i+1}</span>
+      <span style="font-size:12px;flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</span>
+      <span style="font-size:12px;font-family:'JetBrains Mono',monospace">${devStr}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER — HISTORY
+═══════════════════════════════════════════════════════════ */
+function renderHistory(){
+  // Populate filters once
+  const mf=document.getElementById('hist-month-filter');
+  if(mf.options.length<=1) MONTHS.forEach((m,i)=>{const o=document.createElement('option');o.value=i;o.textContent=m+' '+currentYear;mf.appendChild(o);});
+  const ef=document.getElementById('hist-equip-filter');
+  if(ef.options.length<=1) EQUIPMENT.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name;ef.appendChild(o);});
+
+  const monthF=document.getElementById('hist-month-filter').value;
+  const equipF=document.getElementById('hist-equip-filter').value;
+  const s=S.get();
+
+  // Timeline
+  const tlEl=document.getElementById('history-timeline');
+  const tlItems=MONTHS.map((m,mo)=>{
+    if(monthF!==''&&parseInt(monthF)!==mo) return null;
+    const st=monthStats(mo,currentYear);
+    if(st.total===0) return null;
+    const dot=st.pct===100?'done':st.pct>0?'progress':'';
+    return `<div class="tl-item">
+      <div class="tl-line"><div class="tl-dot ${dot}"></div><div class="tl-stem"></div></div>
+      <div class="tl-content">
+        <div class="tl-month">${m} ${currentYear} <span class="badge badge-${st.pct===100?'done':st.pct>0?'progress':'pending'}" style="margin-left:8px">${st.pct}%</span></div>
+        <div class="tl-sub">${st.done}/${st.total} tasks · ${fmtH(st.est)} est · ${fmtH(st.real)} real · ${st.incidents} incident${st.incidents!==1?'s':''}</div>
+      </div>
+    </div>`;
+  }).filter(Boolean);
+  tlEl.innerHTML=tlItems.length?tlItems.join(''):'<div class="no-data"><div class="no-data-ico">📭</div>No history yet.</div>';
+
+  // Incidents
+  const incRows=[];
+  EQUIPMENT.forEach(e=>{
+    if(equipF&&e.id!==equipF) return;
+    for(let mi=0;mi<e.machines;mi++){
+      MONTHS.forEach((_,mo)=>{
+        if(monthF!==''&&parseInt(monthF)!==mo) return;
+        const note=s[S.notesKey(currentYear,mo,e.id,mi)]||'';
+        if(note.trim()) incRows.push(`<tr><td>${MONTHS[mo]}</td><td>${e.name}</td><td>Machine ${mi+1}</td><td>${note}</td></tr>`);
+      });
+    }
+  });
+  document.getElementById('history-incidents-body').innerHTML=incRows.length?incRows.join(''):'<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px">No incidents recorded yet.</td></tr>';
+
+  // Month picker
+  renderMonthPicker();
+}
+
+function renderMonthPicker(){
+  const s=S.get();
+  document.getElementById('month-picker-grid').innerHTML=MONTHS_SHORT.map((m,i)=>{
+    const st=monthStats(i);
+    const hasDone=st.done>0;
+    return `<div class="mpick ${i===currentMonth?'active':''} ${hasDone?'has-data':''}" onclick="jumpToMonth(${i},${currentYear})">${m}</div>`;
+  }).join('');
+}
+
+function jumpToMonth(m,y){
+  currentMonth=m;
+  if(y!==undefined) currentYear=y;
+  document.getElementById('sb-month-label').textContent=MONTHS_SHORT[m]+' '+currentYear;
+  renderMonthPicker();
+  const active=document.querySelector('.view.active');
+  if(active){
+    const vid=active.id.replace('view-','');
+    if(['dashboard','schedule','analysis','weekly','gantt'].includes(vid)) renderView(vid);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER — CONFIG
+═══════════════════════════════════════════════════════════ */
+function renderConfig(){
+  const s=S.get();
+  document.getElementById('config-grid').innerHTML=EQUIPMENT.map(e=>`
+    <div class="cfg-card">
+      <div class="cfg-equip-name"><i class="fa-solid fa-gear"></i>${e.name}</div>
+      ${Array.from({length:e.machines},(_,mi)=>{
+        const serial=s[S.serialKey(e.id,mi)]||'';
+        return `<div class="cfg-row">
+          <span class="cfg-lbl">Unit ${mi+1}</span>
+          <input class="serial-input ${!serial?'no-serial':''}" style="flex:1" placeholder="Serial #…" value="${serial}"
+            oninput="saveSerial('${e.id}',${mi},this.value);this.className='serial-input'+(this.value?'':' no-serial')">
+        </div>`;
+      }).join('')}
+      <div style="font-size:10px;color:var(--text3);margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+        <i class="fa-regular fa-calendar" style="margin-right:4px"></i>${e.activeMonths.map(m=>MONTHS_SHORT[m]).join(', ')}
+      </div>
+    </div>`).join('');
+
+  // Init MDS selectors to current configured day for currentMonth
+  const mdsDay = document.getElementById('mds-day');
+  const mdsMonth = document.getElementById('mds-month');
+  if (mdsDay) {
+    const curDay = MDS.getDay(currentYear, currentMonth);
+    mdsDay.value = curDay;
+  }
+  if (mdsMonth) mdsMonth.value = currentMonth;
+
+  // Wire up event listeners for live preview (once)
+  if (!document.getElementById('mds-day')?._wired) {
+    ['mds-day','mds-year','mds-month'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.addEventListener('change', () => { syncMDSScopeUI(); }); el._wired = true; }
+    });
+    document.querySelectorAll('input[name="mds-scope"]').forEach(r => {
+      r.addEventListener('change', syncMDSScopeUI);
+    });
+  }
+
+  syncMDSScopeUI();
+  renderMDSOverview();
+}
+
+
+function clearAllData(){
+  if(confirm('⚠️ Delete ALL saved data? This cannot be undone.'))
+  { localStorage.removeItem('pmState'); renderAll(); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PDF GENERATION — Corporate Report
+═══════════════════════════════════════════════════════════ */
+function generatePDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const s=S.get(); const stats=monthStats(currentMonth); const active=getActive(currentMonth);
+  const today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const monthName=MONTHS[currentMonth]+' '+currentYear;
+
+  // ── Cover Page ──
+  doc.setFillColor(11,14,20); doc.rect(0,0,210,297,'F');
+  doc.setFillColor(30,58,100); doc.rect(0,0,210,6,'F'); // top accent bar
+  doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(100,130,180);
+  doc.text('PREVENTIVE MAINTENANCE SYSTEM',105,40,'center');
+  doc.setFontSize(28); doc.setFont('helvetica','bold'); doc.setTextColor(226,232,240);
+  doc.text('Maintenance Report',105,60,'center');
+  doc.setFontSize(16); doc.setFont('helvetica','normal'); doc.setTextColor(100,130,180);
+  doc.text(monthName,105,75,'center');
+  // Divider line
+  doc.setDrawColor(59,130,246); doc.setLineWidth(.8); doc.line(40,85,170,85);
+  // Summary stats on cover
+  const coverStats=[
+    ['Completion',stats.pct+'%'],['Tasks Done',`${stats.done}/${stats.total}`],
+    ['Est. Hours',fmtH(stats.est)],['Real Hours',fmtH(stats.real)],['Incidents',stats.incidents]
+  ];
+  coverStats.forEach(([l,v],i)=>{
+    const x=25+(i%3)*62, y=100+Math.floor(i/3)*22;
+    doc.setFontSize(8); doc.setTextColor(100,130,180); doc.text(l.toUpperCase(),x,y);
+    doc.setFontSize(14); doc.setFont('helvetica','bold'); doc.setTextColor(226,232,240); doc.text(v,x,y+8);
+    doc.setFont('helvetica','normal');
+  });
+  // Footer
+  doc.setFontSize(9); doc.setTextColor(70,90,120);
+  doc.text(`Generated: ${today}`,105,280,'center');
+  doc.text('PM Control — Preventive Maintenance System',105,286,'center');
+
+  // ── Page 2 — Executive Summary ──
+  doc.addPage();
+  let y=20;
+  const addSection=(title)=>{
+    doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+    doc.text(title,14,y); y+=3;
+    doc.setDrawColor(59,130,246); doc.setLineWidth(.4); doc.line(14,y,196,y); y+=7;
+  };
+
+  addSection('Executive Summary');
+  doc.autoTable({
+    startY:y, margin:{left:14,right:14},
+    head:[['Metric','Value','Status']],
+    body:[
+      ['Period',monthName,'—'],
+      ['Issued',today,'—'],
+      ['Total Tasks',`${stats.done}/${stats.total}`,stats.pct===100?'✓ Complete':'Pending'],
+      ['Completion Rate',stats.pct+'%',stats.pct===100?'On Target':stats.pct>70?'Good':'Needs Attention'],
+      ['Estimated Hours',fmtH(stats.est),'—'],
+      ['Real Hours',fmtH(stats.real),'—'],
+      ['Deviation',fmtH(Math.abs(stats.real-stats.est))+((stats.real-stats.est)>0?' over':' under'),stats.real<=stats.est?'✓ OK':'⚠ Review'],
+      ['Incidents Logged',stats.incidents,stats.incidents===0?'✓ None':'⚠ See Log'],
+      ['Equipment Groups',stats.activeEquip,'—'],
+    ],
+    styles:{fontSize:10,cellPadding:4},
+    headStyles:{fillColor:[30,58,100],textColor:[200,220,255]},
+    alternateRowStyles:{fillColor:[245,247,250]},
+  });
+  y=doc.lastAutoTable.finalY+12;
+
+  addSection('Detail by Equipment');
+  active.forEach(e=>{
+    if(y>240){doc.addPage();y=20;}
+    const st=equipStats(currentMonth,e,currentYear);
+    const rows=[];
+    for(let mi=0;mi<e.machines;mi++){
+      const serial=s[S.serialKey(e.id,mi)]||'N/A';
+      const tasks=e.tasks(currentMonth); let doneCnt=0;
+      tasks.forEach((_,ti)=>{if(s[S.taskKey(currentYear,currentMonth,e.id,mi,ti)])doneCnt++;});
+      const rt=parseFloat(s[S.timeKey(currentYear,currentMonth,e.id,mi)]||0);
+      const note=s[S.notesKey(currentYear,currentMonth,e.id,mi)]||'—';
+      rows.push([`Machine ${mi+1}`,serial,`${doneCnt}/${tasks.length}`,fmtH(e.hours[currentMonth]),rt?fmtH(rt):'—',note]);
+    }
+    doc.autoTable({
+      startY:y, margin:{left:14,right:14},
+      head:[[`${e.name} — ${st.pct}% complete`,'Serial','Tasks','Est.','Real','Notes/Incidents']],
+      body:rows,
+      styles:{fontSize:9,cellPadding:3},
+      headStyles:{fillColor:[20,40,80],textColor:[180,210,255]},
+      alternateRowStyles:{fillColor:[248,250,252]},
+      columnStyles:{5:{cellWidth:50}},
+    });
+    y=doc.lastAutoTable.finalY+8;
+  });
+
+  // ── Conclusion ──
+  if(y>240){doc.addPage();y=20;}
+  addSection('Conclusion & Recommendations');
+  const dev=stats.real-stats.est;
+  let conclusion=`Period: ${monthName}\n\n`;
+  conclusion+=stats.pct===100?'✓ All scheduled preventive maintenance tasks were completed successfully.\n':`⚠ ${stats.total-stats.done} task(s) remain incomplete for this period.\n`;
+  conclusion+=dev>0?`⚠ Execution exceeded estimated hours by ${fmtH(dev)}. Recommend reviewing task scope and resource allocation.\n`:`✓ Execution completed within estimated time${dev<0?' ('+fmtH(Math.abs(dev))+' under budget)':''}.\n`;
+  conclusion+=stats.incidents>0?`⚠ ${stats.incidents} incident(s) recorded. Follow-up actions may be required — review the incident log.\n`:`✓ No incidents or anomalies were reported this month.\n`;
+  conclusion+=`\nActive equipment groups: ${stats.activeEquip}. Total machines serviced: ${EQUIPMENT.reduce((a,e)=>a+e.machines,0)}.\n`;
+  conclusion+=`\nThis report was generated automatically by PM Control on ${today}.`;
+  doc.setFillColor(245,248,255); doc.rect(14,y,182,70,'F');
+  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(40,40,60);
+  doc.text(doc.splitTextToSize(conclusion,170),18,y+8);
+
+  // Append weekly schedule pages
+  appendWeeklyToPDF(doc);
+
+  doc.save(`PM_Report_${MONTHS_SHORT[currentMonth]}_${currentYear}.pdf`);
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   WEEKLY SCHEDULE — Core Logic
+   Distributes monthly equipment/machines across Mondays
+   Capacity: 3 hours per Monday
+═══════════════════════════════════════════════════════════ */
+const WEEKLY_CAPACITY = 3; // hours per maintenance day
+
+/* ═══════════════════════════════════════════════════════════
+   MAINTENANCE DAY CONFIGURATION SYSTEM
+   Stores per-month day overrides. Default = Monday (1).
+   Structure: { "2026-0": 1, "2026-3": 2, ... }
+   Key format: "YEAR-MONTH" (month 0-based)
+═══════════════════════════════════════════════════════════ */
+const MDS = {
+  STORAGE_KEY: 'pmMaintenanceDays',
+  DEFAULT_DAY: 1, // Monday
+  DAY_NAMES: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+
+  get() {
+    try { return JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '{}'); }
+    catch { return {}; }
+  },
+  set(cfg) { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cfg)); },
+
+  // Get configured day for a specific year+month (0-based month)
+  getDay(year, month) {
+    const cfg = this.get();
+    return cfg[`${year}-${month}`] ?? this.DEFAULT_DAY;
+  },
+
+  // Set day for a specific month only
+  setMonth(year, month, day) {
+    const cfg = this.get();
+    cfg[`${year}-${month}`] = day;
+    this.set(cfg);
+  },
+
+  // Set day for entire year
+  setYear(year, day) {
+    const cfg = this.get();
+    for (let m = 0; m < 12; m++) cfg[`${year}-${m}`] = day;
+    this.set(cfg);
+  },
+
+  // Reset to default (Monday) for all
+  reset() { this.set({}); }
+};
+
+/**
+ * Get all occurrences of the configured maintenance day in a month/year.
+ * Replaces the old getMondaysInMonth — now reads MDS config.
+ */
+function getMondaysInMonth(year, month) {
+  const targetDay = MDS.getDay(year, month);
+  const dates = [];
+  const d = new Date(year, month, 1);
+  while (d.getDay() !== targetDay) d.setDate(d.getDate() + 1);
+  while (d.getMonth() === month) {
+    dates.push(new Date(d));
+    d.setDate(d.getDate() + 7);
+  }
+  return dates;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAINTENANCE DAY SETTINGS — UI Logic
+═══════════════════════════════════════════════════════════ */
+function renderMDSOverview() {
+  const tbody = document.getElementById('mds-overview-body');
+  if (!tbody) return;
+  const year = currentYear;
+  const today = new Date();
+  tbody.innerHTML = MONTHS.map((name, m) => {
+    const day = MDS.getDay(year, m);
+    const dayName = MDS.DAY_NAMES[day];
+    const isDefault = day === MDS.DEFAULT_DAY;
+    const dates = getMondaysInMonth(year, m);
+    // Next upcoming date
+    const next = dates.find(d => d >= today);
+    const nextStr = next ? next.toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '—';
+    const datesStr = dates.map(d => d.toLocaleDateString('en-US', {month:'short', day:'numeric'})).join(', ');
+    const tagClass = isDefault ? 'day-tag' : 'day-tag custom';
+    return `<tr>
+      <td style="font-weight:600">${name} ${year}</td>
+      <td><span class="${tagClass}"><i class="fa-solid fa-calendar-day"></i> ${dayName}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2)">${nextStr}</td>
+      <td style="font-size:11px;color:var(--text3)">${datesStr}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateMDSPreview() {
+  const el = document.getElementById('mds-preview');
+  if (!el) return;
+  const day = parseInt(document.getElementById('mds-day')?.value ?? 1);
+  const year = parseInt(document.getElementById('mds-year')?.value ?? 2026);
+  const monthVal = document.getElementById('mds-month')?.value;
+  const scope = document.querySelector('input[name="mds-scope"]:checked')?.value ?? 'year';
+  const dayName = MDS.DAY_NAMES[day];
+
+  if (scope === 'month' && monthVal !== '') {
+    const m = parseInt(monthVal);
+    const dates = (() => {
+      const arr = []; const d = new Date(year, m, 1);
+      while (d.getDay() !== day) d.setDate(d.getDate() + 1);
+      while (d.getMonth() === m) { arr.push(new Date(d)); d.setDate(d.getDate() + 7); }
+      return arr;
+    })();
+    el.innerHTML = `<div class="alert alert-info">
+      <i class="fa-solid fa-eye"></i>
+      <span><b>Preview:</b> ${MONTHS[m]} ${year} → <b>${dayName}</b> · ${dates.length} dates: ${dates.map(d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'})).join(', ')}</span>
+    </div>`;
+  } else if (scope === 'year') {
+    el.innerHTML = `<div class="alert alert-info">
+      <i class="fa-solid fa-eye"></i>
+      <span><b>Preview:</b> All 12 months of ${year} will use <b>${dayName}</b> as the maintenance day.</span>
+    </div>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function applyMaintenanceDay() {
+  const day = parseInt(document.getElementById('mds-day').value);
+  const year = parseInt(document.getElementById('mds-year').value) || currentYear;
+  const monthVal = document.getElementById('mds-month').value;
+  const scope = document.querySelector('input[name="mds-scope"]:checked')?.value ?? 'year';
+  const dayName = MDS.DAY_NAMES[day];
+
+  // Build warning message
+  let msg = `This will recalculate the maintenance schedule to use ${dayName} as the maintenance day`;
+  msg += scope === 'year' ? ` for all of ${year}.` : ` for ${MONTHS[parseInt(monthVal)]} ${year}.`;
+  msg += '\n\nAll completed tasks, times and incidents will be preserved.\nOnly the schedule dates will be updated.';
+
+  if (!confirm(msg)) return;
+
+  // Apply
+  if (scope === 'year') {
+    MDS.setYear(year, day);
+  } else if (monthVal !== '') {
+    MDS.setMonth(year, parseInt(monthVal), day);
+  } else {
+    alert('Please select a month when using "Apply only to selected month" scope.');
+    return;
+  }
+
+  // Show saved message
+  const msg_el = document.getElementById('mds-saved-msg');
+  if (msg_el) { msg_el.style.display = 'inline-flex'; setTimeout(() => msg_el.style.display = 'none', 3000); }
+
+  // Re-render all affected views
+  renderMDSOverview();
+  // Refresh current active view if it depends on schedule dates
+  const activeView = document.querySelector('.view.active');
+  if (activeView) {
+    const vid = activeView.id.replace('view-', '');
+    if (['weekly', 'gantt', 'schedule', 'dashboard'].includes(vid)) renderView(vid);
+  }
+}
+
+function resetMaintenanceDays() {
+  if (!confirm('Reset all maintenance days to Monday (default) for all months?')) return;
+  MDS.reset();
+  renderMDSOverview();
+  const activeView = document.querySelector('.view.active');
+  if (activeView) {
+    const vid = activeView.id.replace('view-', '');
+    if (['weekly', 'gantt', 'schedule', 'dashboard'].includes(vid)) renderView(vid);
+  }
+  const msg_el = document.getElementById('mds-saved-msg');
+  if (msg_el) { msg_el.style.display = 'inline-flex'; setTimeout(() => msg_el.style.display = 'none', 3000); }
+}
+
+// Sync month selector visibility based on scope radio
+function syncMDSScopeUI() {
+  const scope = document.querySelector('input[name="mds-scope"]:checked')?.value;
+  const monthField = document.getElementById('mds-month')?.closest('.mds-field');
+  if (monthField) monthField.style.opacity = scope === 'month' ? '1' : '0.4';
+  updateMDSPreview();
+}
+
+
+
+/**
+ * Build flat list of work units for a month
+ * Each unit = { equipId, equipName, machineIdx, hours }
+ * Sorted by hours descending for better bin-packing
+ */
+function buildWorkUnits(month) {
+  const units = [];
+  getActive(month).forEach(e => {
+    const hrs = e.hours[month];
+    for (let mi = 0; mi < e.machines; mi++) {
+      units.push({ equipId: e.id, equipName: e.name, machineIdx: mi, hours: hrs });
+    }
+  });
+  // Sort descending by hours for better packing
+  units.sort((a, b) => b.hours - a.hours);
+  return units;
+}
+
+/**
+ * Distribute work units across available Mondays
+ * Strategy: greedy bin-packing — assign complete units,
+ * prioritize filling each Monday close to capacity
+ * without splitting individual machine tasks.
+ */
+function distributeToWeeks(units, mondays) {
+  const weeks = mondays.map((d, i) => ({
+    index: i,
+    date: d,
+    units: [],
+    totalHours: 0,
+  }));
+
+  // First pass: try to fill each week to ~3h without exceeding 4.5h
+  const assigned = new Array(units.length).fill(false);
+
+  weeks.forEach(week => {
+    units.forEach((unit, ui) => {
+      if (assigned[ui]) return;
+      if (week.totalHours + unit.hours <= WEEKLY_CAPACITY * 1.5) {
+        week.units.push(unit);
+        week.totalHours = +(week.totalHours + unit.hours).toFixed(2);
+        assigned[ui] = true;
+      }
+    });
+  });
+
+  // Second pass: assign any remaining units to last week
+  units.forEach((unit, ui) => {
+    if (!assigned[ui]) {
+      const last = weeks[weeks.length - 1];
+      last.units.push(unit);
+      last.totalHours = +(last.totalHours + unit.hours).toFixed(2);
+    }
+  });
+
+  return weeks;
+}
+
+// Weekly state keys
+const W = {
+  doneKey: (year, month, weekIdx, equipId, machineIdx) =>
+    `wd_${year}_${month}_${weekIdx}_${equipId}_${machineIdx}`,
+  timeKey: (year, month, weekIdx, equipId, machineIdx) =>
+    `wt_${year}_${month}_${weekIdx}_${equipId}_${machineIdx}`,
+};
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER — WEEKLY VIEW
+═══════════════════════════════════════════════════════════ */
+function renderWeekly() {
+  const year = currentYear;
+  const mondays = getMondaysInMonth(year, currentMonth);
+  const dayName = MDS.DAY_NAMES[MDS.getDay(year, currentMonth)];
+  const units = buildWorkUnits(currentMonth);
+  const weeks = distributeToWeeks(units, mondays);
+  const s = S.get();
+
+  document.getElementById('weekly-title').textContent =
+    MONTHS[currentMonth] + ' ' + currentYear + ' — Weekly Schedule';
+  document.getElementById('weekly-sub').textContent =
+    `${mondays.length} ${dayName}s available · ${WEEKLY_CAPACITY}h capacity/week · ${units.length} sessions · ${currentYear}`;
+
+  // ── Monthly summary bar ──
+  let totalEstW = 0, totalRealW = 0, totalDoneUnits = 0, totalUnits = units.length;
+  let overloadWeeks = 0;
+  weeks.forEach((w, wi) => {
+    totalEstW += w.totalHours;
+    w.units.forEach(u => {
+      const rt = parseFloat(s[W.timeKey(currentYear, currentMonth, wi, u.equipId, u.machineIdx)] || 0);
+      totalRealW += rt;
+      if (s[W.doneKey(currentYear, currentMonth, wi, u.equipId, u.machineIdx)]) totalDoneUnits++;
+    });
+    if (w.totalHours > WEEKLY_CAPACITY) overloadWeeks++;
+  });
+
+  // Badge in sidebar
+  const obadge = document.getElementById('sb-overload-badge');
+  obadge.textContent = '!'; obadge.style.display = overloadWeeks > 0 ? 'inline-flex' : 'none';
+
+  document.getElementById('weekly-summary-wrap').innerHTML = `
+    <div class="card mt0" style="margin-bottom:16px">
+      <div class="week-summary-bar">
+        <div class="wsb-item">
+          <span class="wsb-lbl">Mondays</span>
+          <span class="wsb-val text-accent">${mondays.length}</span>
+        </div>
+        <div class="wsb-item">
+          <span class="wsb-lbl">Total Capacity</span>
+          <span class="wsb-val">${fmtH(mondays.length * WEEKLY_CAPACITY)}</span>
+        </div>
+        <div class="wsb-item">
+          <span class="wsb-lbl">Work Planned</span>
+          <span class="wsb-val">${fmtH(totalEstW)}</span>
+        </div>
+        <div class="wsb-item">
+          <span class="wsb-lbl">Executed</span>
+          <span class="wsb-val text-green">${fmtH(totalRealW)}</span>
+        </div>
+        <div class="wsb-item">
+          <span class="wsb-lbl">Units Done</span>
+          <span class="wsb-val">${totalDoneUnits}/${totalUnits}</span>
+        </div>
+        <div class="wsb-item">
+          <span class="wsb-lbl">Overload Weeks</span>
+          <span class="wsb-val ${overloadWeeks > 0 ? 'text-amber' : 'text-green'}">${overloadWeeks}</span>
+        </div>
+        <div style="flex:1"></div>
+        <div>
+          <div class="prog-wrap" style="width:180px;height:10px">
+            <div class="prog-fill prog-green" style="width:${totalUnits ? Math.round(totalDoneUnits/totalUnits*100) : 0}%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;text-align:right">
+            ${totalUnits ? Math.round(totalDoneUnits/totalUnits*100) : 0}% weekly completion
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // ── Week blocks ──
+  document.getElementById('weekly-content').innerHTML = weeks.map((w, wi) => buildWeekBlock(w, wi, s)).join('');
+}
+
+function buildWeekBlock(w, wi, s) {
+  const month = currentMonth;
+  const weekYear = currentYear;
+  const isOver = w.totalHours > WEEKLY_CAPACITY;
+  const capPct = Math.min(Math.round(w.totalHours / WEEKLY_CAPACITY * 100), 100);
+  const capOver = w.totalHours > WEEKLY_CAPACITY;
+  const capFillClass = capPct >= 100 ? 'over' : capPct >= 80 ? 'warn' : 'ok';
+  const overCapPct = Math.round(w.totalHours / WEEKLY_CAPACITY * 100);
+
+  // Compute week done state
+  let unitsDone = 0, realHours = 0;
+  w.units.forEach(u => {
+    if (s[W.doneKey(month, wi, u.equipId, u.machineIdx)]) unitsDone++;
+    realHours += parseFloat(s[W.timeKey(month, wi, u.equipId, u.machineIdx)] || 0);
+  });
+  realHours = +realHours.toFixed(2);
+  const weekPct = w.units.length ? Math.round(unitsDone / w.units.length * 100) : 0;
+  const isComplete = weekPct === 100 && w.units.length > 0;
+
+  const weekDayName = MDS.DAY_NAMES[MDS.getDay(weekYear, month)];
+  const dateStr = w.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const dayNum = w.date.getDate();
+  const monStr = w.date.toLocaleDateString('en-US', { month: 'short' });
+  const fullDate = w.date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Group units by equipment for display
+  const byEquip = {};
+  w.units.forEach(u => {
+    if (!byEquip[u.equipId]) byEquip[u.equipId] = { name: u.equipName, machines: [] };
+    byEquip[u.equipId].machines.push(u);
+  });
+
+  const equipRows = Object.entries(byEquip).map(([eid, eq]) => {
+    const totalHrs = eq.machines.reduce((a, u) => a + u.hours, 0);
+    const machineRows = eq.machines.map(u => {
+      const isDone = !!s[W.doneKey(weekYear, month, wi, u.equipId, u.machineIdx)];
+      const rt = s[W.timeKey(weekYear, month, wi, u.equipId, u.machineIdx)] || '';
+      const serial = s[S.serialKey(u.equipId, u.machineIdx)] || '';
+      const dev = rt ? (parseFloat(rt) - u.hours) : 0;
+      const devStr = rt ? `<span class="${dev > 0 ? 'dev-over' : 'dev-under'}" style="font-size:10px;font-family:'JetBrains Mono',monospace">${dev > 0 ? '+' : ''}${fmtH(Math.abs(dev))}</span>` : '';
+      return `
+      <div class="wer-machine ${isDone ? 'done' : ''}">
+        <button class="wer-done-btn ${isDone ? 'checked' : ''}"
+          onclick="toggleWeekUnit('${u.equipId}',${u.machineIdx},${wi})">
+          <i class="fa-solid fa-check"></i>
+        </button>
+        <span class="wer-machine-label">
+          Machine ${u.machineIdx + 1}
+          ${serial ? `<span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-left:4px">#${serial}</span>` : ''}
+        </span>
+        <span class="wer-serial">${fmtH(u.hours)}</span>
+        <span style="font-size:11px;color:var(--text3)">→</span>
+        <input class="wer-time-inp" type="number" min="0" step="0.25" placeholder="Real"
+          value="${rt}" title="Real hours for this machine"
+          oninput="saveWeekTime('${u.equipId}',${u.machineIdx},${wi},this.value)">
+        ${devStr}
+        ${isDone ? '<span style="font-size:10px;color:var(--green);font-weight:600;margin-left:4px">✓ Done</span>' : ''}
+      </div>`;
+    }).join('');
+
+    return `
+    <div class="week-equip-row">
+      <div class="wer-head">
+        <span class="wer-name">${eq.name}</span>
+        <span class="badge badge-blue" style="font-size:10px">${eq.machines.length} machine${eq.machines.length > 1 ? 's' : ''}</span>
+        <span class="wer-hours">${fmtH(totalHrs)}</span>
+      </div>
+      <div class="wer-machines">${machineRows}</div>
+    </div>`;
+  }).join('');
+
+  const noUnits = w.units.length === 0;
+
+  return `
+  <div class="week-block ${isOver ? 'overload' : ''} ${isComplete ? 'complete' : ''}" id="week-${wi}">
+    <div class="week-head" onclick="toggleWeek(${wi})">
+      <div class="week-date-badge">
+        <span class="week-date-day">${dayNum}</span>
+        <span class="week-date-mon">${monStr}</span>
+      </div>
+      <div class="week-head-info">
+        <div class="week-label">Week ${wi + 1} — ${weekDayName}, ${fullDate.split(', ').slice(1).join(', ')}</div>
+        <div class="week-meta">
+          <span class="week-stat"><i class="fa-solid fa-boxes-stacked"></i> ${w.units.length} sessions</span>
+          <span class="week-stat"><i class="fa-regular fa-clock"></i> ${fmtH(w.totalHours)} planned</span>
+          <span class="week-stat"><i class="fa-solid fa-stopwatch"></i> ${fmtH(realHours)} executed</span>
+          <span class="week-stat"><i class="fa-solid fa-circle-check"></i> ${unitsDone}/${w.units.length} done</span>
+          ${noUnits ? '<span style="font-size:11px;color:var(--text3);font-style:italic">No work assigned</span>' : ''}
+        </div>
+        <div class="week-cap-bar">
+          <span class="cap-label">Capacity ${WEEKLY_CAPACITY}h</span>
+          <div class="cap-track">
+            <div class="cap-fill ${capFillClass}" style="width:${Math.min(overCapPct,100)}%"></div>
+            <div class="cap-marker"></div>
+          </div>
+          <span class="cap-pct ${capFillClass === 'over' ? 'text-red' : capFillClass === 'warn' ? 'text-amber' : 'text-green'}">${overCapPct}%</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        ${isOver ? `<div class="overload-pill"><i class="fa-solid fa-bolt"></i> Over capacity</div>` : ''}
+        ${isComplete ? `<div class="week-complete-pill"><i class="fa-solid fa-check"></i> Complete</div>` : ''}
+        <span class="badge ${weekPct === 100 ? 'badge-done' : weekPct > 0 ? 'badge-progress' : 'badge-pending'}">${weekPct}%</span>
+        <i class="fa-solid fa-chevron-down equip-chevron" style="color:var(--text3);font-size:11px;transition:transform .2s" id="wchev-${wi}"></i>
+      </div>
+    </div>
+    <div class="week-body" id="wbody-${wi}">
+      ${noUnits
+        ? '<div class="no-data" style="padding:24px"><div class="no-data-ico">🗓</div>No work assigned to this Monday.</div>'
+        : `${equipRows}
+           <div class="week-footer">
+             <div class="wf-item"><span class="wf-lbl">Capacity</span><span class="wf-val">${fmtH(WEEKLY_CAPACITY)}</span></div>
+             <span style="color:var(--border2)">|</span>
+             <div class="wf-item"><span class="wf-lbl">Planned</span><span class="wf-val">${fmtH(w.totalHours)}</span></div>
+             <span style="color:var(--border2)">|</span>
+             <div class="wf-item"><span class="wf-lbl">Executed</span><span class="wf-val text-green">${fmtH(realHours)}</span></div>
+             <span style="color:var(--border2)">|</span>
+             <div class="wf-item"><span class="wf-lbl">Deviation</span>
+               <span class="wf-val ${realHours > 0 && realHours - w.totalHours > 0 ? 'dev-over' : realHours > 0 ? 'dev-under' : ''}">
+                 ${realHours > 0 ? (realHours - w.totalHours > 0 ? '+' : '') + fmtH(Math.abs(realHours - w.totalHours)) : '—'}
+               </span>
+             </div>
+             <span style="color:var(--border2)">|</span>
+             <div class="wf-item"><span class="wf-lbl">Done</span><span class="wf-val">${unitsDone}/${w.units.length}</span></div>
+             ${isOver ? '<span class="overload-pill" style="margin-left:auto"><i class="fa-solid fa-bolt"></i> ${fmtH(w.totalHours - WEEKLY_CAPACITY)} over 3h limit</span>' : ''}
+           </div>`
+      }
+    </div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   WEEKLY ACTIONS
+═══════════════════════════════════════════════════════════ */
+function toggleWeek(wi) {
+  const body = document.getElementById('wbody-' + wi);
+  const block = document.getElementById('week-' + wi);
+  const chev = document.getElementById('wchev-' + wi);
+  if (!body) return;
+  const isOpen = body.style.display !== 'none' && body.style.display !== '';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (chev) chev.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+
+function toggleWeekUnit(equipId, machineIdx, weekIdx) {
+  const s = S.get();
+  const key = W.doneKey(currentYear, currentMonth, weekIdx, equipId, machineIdx);
+  s[key] = !s[key]; S.set(s);
+  renderWeekly();
+}
+
+function saveWeekTime(equipId, machineIdx, weekIdx, val) {
+  const s = S.get();
+  s[W.timeKey(currentYear, currentMonth, weekIdx, equipId, machineIdx)] = val;
+  S.set(s);
+  renderWeekly();
+}
+
+function expandAllWeeks() {
+  document.querySelectorAll('.week-body').forEach((b, i) => {
+    b.style.display = 'block';
+    const c = document.getElementById('wchev-' + i);
+    if (c) c.style.transform = 'rotate(180deg)';
+  });
+}
+
+function collapseAllWeeks() {
+  document.querySelectorAll('.week-body').forEach((b, i) => {
+    b.style.display = 'none';
+    const c = document.getElementById('wchev-' + i);
+    if (c) c.style.transform = '';
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PDF — Weekly section injected into existing generatePDF
+   (appended as extra pages after main report)
+═══════════════════════════════════════════════════════════ */
+function appendWeeklyToPDF(doc) {
+  const year = currentYear;
+  const s = S.get();
+  const dayName = MDS.DAY_NAMES[MDS.getDay(year, currentMonth)];
+  const mondays = getMondaysInMonth(year, currentMonth);
+  const units = buildWorkUnits(currentMonth);
+  const weeks = distributeToWeeks(units, mondays);
+
+  doc.addPage();
+  let y = 20;
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 30, 30);
+  doc.text('Weekly Execution Schedule', 14, y); y += 3;
+  doc.setDrawColor(59, 130, 246); doc.setLineWidth(.4); doc.line(14, y, 196, y); y += 8;
+
+  weeks.forEach((w, wi) => {
+    if (y > 240) { doc.addPage(); y = 20; }
+    const dateStr = w.date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    let unitsDone = 0, realHours = 0;
+    w.units.forEach(u => {
+      if (s[W.doneKey(currentYear, currentMonth, wi, u.equipId, u.machineIdx)]) unitsDone++;
+      realHours += parseFloat(s[W.timeKey(currentYear, currentMonth, wi, u.equipId, u.machineIdx)] || 0);
+    });
+    realHours = +realHours.toFixed(2);
+    const weekPct = w.units.length ? Math.round(unitsDone / w.units.length * 100) : 0;
+    const isOver = w.totalHours > WEEKLY_CAPACITY;
+
+    const rows = w.units.map(u => {
+      const isDone = !!s[W.doneKey(currentYear, currentMonth, wi, u.equipId, u.machineIdx)];
+      const rt = parseFloat(s[W.timeKey(currentYear, currentMonth, wi, u.equipId, u.machineIdx)] || 0);
+      const serial = s[S.serialKey(u.equipId, u.machineIdx)] || 'N/A';
+      return [u.equipName, `Machine ${u.machineIdx + 1}`, serial, fmtH(u.hours),
+        rt > 0 ? fmtH(rt) : '—', isDone ? '✓ Done' : '⏳ Pending'];
+    });
+
+    doc.autoTable({
+      startY: y,
+      margin: { left: 14, right: 14 },
+      head: [[`Week ${wi + 1} — ${dateStr}  |  Planned: ${fmtH(w.totalHours)}  |  Executed: ${fmtH(realHours)}  |  ${weekPct}% done${isOver ? '  ⚠ Over capacity' : ''}`,
+        '', '', '', '', '']],
+      body: rows,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: isOver ? [80, 40, 0] : [20, 40, 80], textColor: [200, 220, 255], fontSize: 9 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columns: [
+        { header: 'Equipment', dataKey: 0 },
+        { header: 'Machine', dataKey: 1 },
+        { header: 'Serial', dataKey: 2 },
+        { header: 'Est.', dataKey: 3 },
+        { header: 'Real', dataKey: 4 },
+        { header: 'Status', dataKey: 5 },
+      ],
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  });
+}
+
+
+
+/* ═══════════════════════════════════════════════════════════
+   PARTS & INVENTORY
+═══════════════════════════════════════════════════════════ */
+const P={
+  getAll(){try{return JSON.parse(localStorage.getItem('pmParts')||'[]')}catch{return[]}},
+  setAll(arr){localStorage.setItem('pmParts',JSON.stringify(arr))},
+  getHistory(){try{return JSON.parse(localStorage.getItem('pmPartsHist')||'[]')}catch{return[]}},
+  addHistory(e){const h=P.getHistory();h.unshift(e);localStorage.setItem('pmPartsHist',JSON.stringify(h.slice(0,200)))},
+  genId(){return'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
+};
+let partsFilter='all';
+
+function stockStatus(p){if(p.qty<=0)return'out';if(p.qty<=p.lowAt)return'low';return'ok';}
+function stockBadge(p){
+  const s=stockStatus(p);
+  if(s==='out') return'<span class="stock-badge-out"><i class="fa-solid fa-circle-xmark"></i> Out of Stock</span>';
+  if(s==='low') return'<span class="stock-badge-low"><i class="fa-solid fa-triangle-exclamation"></i> Low Stock</span>';
+  return'<span class="stock-badge-ok"><i class="fa-solid fa-circle-check"></i> In Stock</span>';
+}
+
+function renderParts(){
+  let parts=P.getAll();
+  const equipF=document.getElementById('parts-equip-filter')?.value||'';
+  if(equipF) parts=parts.filter(p=>p.equipId===equipF);
+  if(partsFilter==='ok') parts=parts.filter(p=>stockStatus(p)==='ok');
+  else if(partsFilter==='low') parts=parts.filter(p=>stockStatus(p)==='low');
+  else if(partsFilter==='out') parts=parts.filter(p=>stockStatus(p)==='out');
+
+  const all=P.getAll();
+  const total=all.length,inStock=all.filter(p=>stockStatus(p)==='ok').length,
+        low=all.filter(p=>stockStatus(p)==='low').length,out=all.filter(p=>stockStatus(p)==='out').length;
+
+  const kpiRow=document.getElementById('parts-kpi-row');
+  if(kpiRow) kpiRow.innerHTML=`
+    <div class="kpi kpi-accent"><div class="kpi-label"><i class="fa-solid fa-boxes-stacked"></i> Total Parts</div><div class="kpi-val">${total}</div><div class="kpi-sub">registered</div></div>
+    <div class="kpi kpi-green"><div class="kpi-label"><i class="fa-solid fa-circle-check"></i> In Stock</div><div class="kpi-val">${inStock}</div><div class="kpi-sub">available</div></div>
+    <div class="kpi kpi-amber"><div class="kpi-label"><i class="fa-solid fa-triangle-exclamation"></i> Low Stock</div><div class="kpi-val">${low}</div><div class="kpi-sub">needs reorder</div></div>
+    <div class="kpi kpi-red"><div class="kpi-label"><i class="fa-solid fa-circle-xmark"></i> Out of Stock</div><div class="kpi-val">${out}</div><div class="kpi-sub">unavailable</div></div>`;
+
+  const badge=document.getElementById('sb-lowstock-badge');
+  if(badge){badge.textContent=low+out;badge.style.display=(low+out)>0?'inline-flex':'none';}
+
+  const tbody=document.getElementById('parts-tbody');
+  if(!tbody) return;
+  if(!parts.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:28px">No parts yet. Click "+ Add Part" to get started.</td></tr>';
+  } else {
+    tbody.innerHTML=parts.map(p=>{
+      const equip=EQUIPMENT.find(e=>e.id===p.equipId);
+      const s=stockStatus(p);
+      const qc=s==='out'?'var(--red)':s==='low'?'var(--amber)':'var(--green)';
+      return`<tr>
+        <td style="font-weight:600">${p.name}</td>
+        <td style="font-size:12px;color:var(--text2)">${equip?equip.name:'—'}</td>
+        <td><div class="qty-ctrl">
+          <button class="qty-btn" onclick="adjustQty('${p.id}',-1)">−</button>
+          <span class="qty-val" style="color:${qc}">${p.qty}</span>
+          <button class="qty-btn" onclick="adjustQty('${p.id}',1)">+</button>
+        </div></td>
+        <td>${stockBadge(p)}</td>
+        <td style="font-size:12px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.notes||'—'}</td>
+        <td>${p.url?`<a class="link-btn" href="${p.url}" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Buy</a>`:'<span style="color:var(--text3);font-size:11px">—</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-ghost btn-sm" onclick="openEditPartModal('${p.id}')"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-ghost btn-sm" onclick="deletePart('${p.id}')" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+  const hbody=document.getElementById('parts-history-tbody');
+  if(!hbody) return;
+  const hist=P.getHistory().slice(0,40);
+  hbody.innerHTML=hist.length
+    ?hist.map(h=>`<tr><td style="font-size:11px;color:var(--text3)">${h.date}</td><td style="font-weight:500">${h.partName}</td><td style="font-size:12px;color:var(--text2)">${h.equipName||'—'}</td><td style="font-family:'JetBrains Mono',monospace;color:${h.qty<0?'var(--red)':'var(--green)'}">${h.qty>0?'+':''}${h.qty}</td><td style="font-size:11px">${MONTHS[h.month]||''} 2026</td></tr>`).join('')
+    :'<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">No usage history yet.</td></tr>';
+}
+
+function populatePartsEquipFilter(){
+  const sel=document.getElementById('parts-equip-filter');if(!sel)return;
+  if(sel.options.length>1) return;
+  EQUIPMENT.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name;sel.appendChild(o);});
+}
+function setPartsFilter(f,el){
+  partsFilter=f;
+  document.querySelectorAll('[data-pf]').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderParts();
+}
+function adjustQty(id,delta){
+  const parts=P.getAll();const p=parts.find(x=>x.id===id);if(!p)return;
+  const old=p.qty;p.qty=Math.max(0,p.qty+delta);P.setAll(parts);
+  const equip=EQUIPMENT.find(e=>e.id===p.equipId);
+  P.addHistory({partName:p.name,equipId:p.equipId,equipName:equip?equip.name:'',qty:p.qty-old,month:currentMonth,year:currentYear,date:new Date().toLocaleDateString()});
+  renderParts();
+}
+function openAddPartModal(){
+  ['pm-name','pm-url','pm-notes','pm-edit-id'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pm-qty').value=1;
+  document.getElementById('pm-low').value=2;
+  document.getElementById('part-modal-title').textContent='Add Part';
+  const sel=document.getElementById('pm-equip');
+  sel.innerHTML='<option value="">— No specific equipment —</option>';
+  EQUIPMENT.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name;sel.appendChild(o);});
+  document.getElementById('part-modal').classList.add('open');
+}
+function openEditPartModal(id){
+  const p=P.getAll().find(x=>x.id===id);if(!p)return;
+  openAddPartModal();
+  document.getElementById('pm-name').value=p.name;
+  document.getElementById('pm-qty').value=p.qty;
+  document.getElementById('pm-low').value=p.lowAt||2;
+  document.getElementById('pm-url').value=p.url||'';
+  document.getElementById('pm-notes').value=p.notes||'';
+  document.getElementById('pm-edit-id').value=p.id;
+  document.getElementById('pm-equip').value=p.equipId||'';
+  document.getElementById('part-modal-title').textContent='Edit Part';
+}
+function closePartModal(){document.getElementById('part-modal').classList.remove('open');}
+function savePart(){
+  const name=document.getElementById('pm-name').value.trim();
+  if(!name){alert('Part name is required.');return;}
+  const parts=P.getAll();
+  const editId=document.getElementById('pm-edit-id').value;
+  const entry={
+    id:editId||P.genId(),name,
+    equipId:document.getElementById('pm-equip').value,
+    qty:parseInt(document.getElementById('pm-qty').value)||0,
+    lowAt:parseInt(document.getElementById('pm-low').value)||2,
+    url:document.getElementById('pm-url').value.trim(),
+    notes:document.getElementById('pm-notes').value.trim(),
+    createdAt:editId?(parts.find(p=>p.id===editId)?.createdAt||new Date().toISOString()):new Date().toISOString()
+  };
+  if(editId){const idx=parts.findIndex(p=>p.id===editId);if(idx>=0)parts[idx]=entry;else parts.push(entry);}
+  else parts.push(entry);
+  P.setAll(parts);closePartModal();renderParts();
+}
+function deletePart(id){
+  if(!confirm('Delete this part?'))return;
+  P.setAll(P.getAll().filter(p=>p.id!==id));renderParts();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GANTT VIEW
+═══════════════════════════════════════════════════════════ */
+function renderGantt(){
+  const year=currentYear;
+  const mondays=getMondaysInMonth(year,currentMonth);
+  const dayName=MDS.DAY_NAMES[MDS.getDay(year,currentMonth)];
+  const units=buildWorkUnits(currentMonth);
+  const weeks=distributeToWeeks(units,mondays);
+  const s=S.get();
+  const today=new Date();
+  const isCurMonth=(today.getFullYear()===currentYear&&today.getMonth()===currentMonth);
+  let todayWeekIdx=-1;
+  if(isCurMonth) mondays.forEach((m,i)=>{const nx=mondays[i+1];if(today>=m&&(!nx||today<nx))todayWeekIdx=i;});
+
+  document.getElementById('gantt-title').textContent=MONTHS[currentMonth]+' '+currentYear+' — Gantt View';
+  document.getElementById('gantt-sub').textContent=`${mondays.length} weeks · ${units.length} sessions · visual executive schedule · ${dayName}s`;
+
+  const active=getActive(currentMonth);
+  const rows=[];
+  active.forEach(e=>{
+    const tasks=e.tasks(currentMonth);
+    for(let mi=0;mi<e.machines;mi++){
+      let done=0;tasks.forEach((_,ti)=>{if(s[S.taskKey(currentMonth,e.id,mi,ti)])done++;});
+      const pct=tasks.length?Math.round(done/tasks.length*100):0;
+      const assignedWeeks=weeks.map((w,wi)=>w.units.find(u=>u.equipId===e.id&&u.machineIdx===mi)?wi:-1).filter(wi=>wi>=0);
+      const weekDone=assignedWeeks.map(wi=>!!s[W.doneKey(currentYear,currentMonth,wi,e.id,mi)]);
+      const allDone=assignedWeeks.length>0&&weekDone.every(Boolean);
+      const anyDone=weekDone.some(Boolean);
+      const status=allDone?'done':anyDone?'progress':pct>0?'progress':'pending';
+      const realH=assignedWeeks.reduce((a,wi)=>a+(parseFloat(s[W.timeKey(currentYear,currentMonth,wi,e.id,mi)])||0),0);
+      rows.push({e,mi,pct,status,assignedWeeks,weekDone,done,total:tasks.length,realH,serial:s[S.serialKey(e.id,mi)]||''});
+    }
+  });
+
+  const whHeaders=weeks.map((w,wi)=>{
+    const over=w.totalHours>WEEKLY_CAPACITY;
+    const isTW=wi===todayWeekIdx;
+    return`<th class="gantt-th week-col" style="${isTW?'border-bottom:2px solid var(--accent);color:var(--accent)':''}">
+      <div style="font-weight:700;font-size:12px">${isTW?'<i class="fa-solid fa-location-dot" style="color:var(--accent)"></i> ':''}Week ${wi+1}</div>
+      <div style="font-size:10px;color:var(--text3)">${w.date.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+      <div style="font-size:9px;margin-top:2px;color:${over?'var(--amber)':'var(--text3)'}">
+        ${fmtH(w.totalHours)}${over?' ⚡':''}
+      </div>
+    </th>`;
+  }).join('');
+
+  const tableRows=rows.map(r=>{
+    const cells=weeks.map((w,wi)=>{
+      const isAssigned=r.assignedWeeks.includes(wi);
+      const isTW=wi===todayWeekIdx;
+      const cellBorder=isTW?'border-left:2px solid var(--accent)40':'';
+      if(!isAssigned) return`<td class="gantt-td gantt-week-cell" style="${cellBorder}"><div class="gantt-bar empty" style="font-size:10px">—</div></td>`;
+      const idx=r.assignedWeeks.indexOf(wi);
+      const unitDone=r.weekDone[idx];
+      const barSt=unitDone?'done':r.status==='progress'?'progress':'pending';
+      const icon=unitDone?'✓':r.pct>0?'…':'·';
+      return`<td class="gantt-td gantt-week-cell" style="${cellBorder}">
+        <div class="gantt-bar ${barSt}"
+          onmouseenter="showGanttTip(event,'${r.e.name.replace(/'/g,"\\'")}',${r.mi},'${barSt}',${r.e.hours[currentMonth]},${r.realH},${r.pct},${r.done},${r.total})"
+          onmouseleave="hideGanttTip()"
+          onclick="switchView('schedule',document.querySelector('[data-view=schedule]'))">
+          <div class="gantt-prog-strip ${barSt}" style="width:${r.pct}%"></div>
+          <span style="position:relative;z-index:1">${icon} ${r.pct}%</span>
+        </div>
+      </td>`;
+    }).join('');
+    return`<tr class="gantt-tr">
+      <td class="gantt-td" style="min-width:190px">
+        <div class="gantt-equip-name">${r.e.name}</div>
+        <div class="gantt-machine-sub">Machine ${r.mi+1}${r.serial?' · #'+r.serial:''} · ${r.done}/${r.total} tasks</div>
+      </td>${cells}
+    </tr>`;
+  }).join('');
+
+  const summaryRow=`<tr class="gantt-tr gantt-summary-row">
+    <td class="gantt-td" style="font-size:12px;color:var(--text2);font-weight:700">
+      <i class="fa-solid fa-sigma"></i> Weekly Load
+    </td>
+    ${weeks.map((w,wi)=>{
+      const over=w.totalHours>WEEKLY_CAPACITY;
+      const isTW=wi===todayWeekIdx;
+      return`<td class="gantt-td gantt-week-cell" style="${isTW?'border-left:2px solid var(--accent)40':''}">
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:${over?'var(--amber)':'var(--green)'}">
+          ${fmtH(w.totalHours)}
+        </div>
+        <div style="font-size:9px;color:var(--text3);text-align:center;margin-top:2px">${over?'⚡ Over':'✓ OK'}</div>
+      </td>`;
+    }).join('')}
+  </tr>`;
+
+  const noData=rows.length===0?'<div class="no-data"><div class="no-data-ico">📭</div>No activities for this month.</div>':'';
+
+  document.getElementById('gantt-content').innerHTML=`
+    ${isCurMonth&&todayWeekIdx>=0?`<div style="margin-bottom:12px"><span class="badge badge-blue"><i class="fa-solid fa-location-dot"></i> Today is in Week ${todayWeekIdx+1} — ${mondays[todayWeekIdx].toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</span></div>`:''}
+    ${noData||`<div class="gantt-wrap">
+      <table class="gantt-table">
+        <thead><tr><th class="gantt-th" style="min-width:190px">Equipment / Machine</th>${whHeaders}</tr></thead>
+        <tbody>${tableRows}${summaryRow}</tbody>
+      </table>
+    </div>
+    <div id="gantt-tip" class="gantt-tooltip"></div>`}`;
+}
+
+function showGanttTip(ev,name,mi,status,est,real,pct,done,total){
+  const t=document.getElementById('gantt-tip');if(!t)return;
+  t.style.display='block';t.style.left=(ev.clientX+14)+'px';t.style.top=(ev.clientY-10)+'px';
+  const dev=real>0?real-est:null;
+  t.innerHTML=`
+    <div style="font-weight:700;margin-bottom:8px;font-size:13px;white-space:nowrap">${name}</div>
+    <div class="gt-row"><span class="gt-label">Machine</span><span class="gt-val">${mi+1}</span></div>
+    <div class="gt-row"><span class="gt-label">Status</span><span class="gt-val" style="color:${status==='done'?'var(--green)':status==='progress'?'var(--amber)':'var(--text3)'}">${status}</span></div>
+    <div class="gt-row"><span class="gt-label">Tasks</span><span class="gt-val">${done}/${total} (${pct}%)</span></div>
+    <div class="gt-row"><span class="gt-label">Est. hrs</span><span class="gt-val">${fmtH(est)}</span></div>
+    <div class="gt-row"><span class="gt-label">Real hrs</span><span class="gt-val">${real>0?fmtH(real):'—'}</span></div>
+    ${dev!==null?`<div class="gt-row"><span class="gt-label">Deviation</span><span class="gt-val" style="color:${dev>0?'var(--red)':'var(--green)'}">${dev>0?'+':''}${fmtH(Math.abs(dev))}</span></div>`:''}
+    <div style="font-size:10px;color:var(--text3);margin-top:6px">Click → open schedule</div>`;
+}
+function hideGanttTip(){const t=document.getElementById('gantt-tip');if(t)t.style.display='none';}
+
+function renderView(name){
+  if(name==='dashboard') renderDashboard();
+  else if(name==='schedule') renderSchedule();
+  else if(name==='analysis') renderAnalysis();
+  else if(name==='history') renderHistory();
+  else if(name==='config') renderConfig();
+  else if(name==='weekly') renderWeekly();
+  else if(name==='parts'){populatePartsEquipFilter();renderParts();}
+  else if(name==='gantt') renderGantt();
+}
+
+function switchView(name,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  if(el) el.classList.add('active');
+  const names={dashboard:'Dashboard',schedule:'Schedule',weekly:'Weekly Schedule',analysis:'Analysis',history:'History',config:'Equipment Setup',parts:'Parts & Inventory',gantt:'Gantt View'};
+  document.getElementById('hdr-view-name').textContent=names[name]||name;
+  renderView(name);
+}
+
+function changeMonth(dir){
+  currentMonth += dir;
+  if(currentMonth > 11){ currentMonth = 0; currentYear++; }
+  else if(currentMonth < 0){ currentMonth = 11; currentYear--; }
+  document.getElementById('sb-month-label').textContent=MONTHS_SHORT[currentMonth]+' '+currentYear;
+  renderAll();
+}
+
+function toggleSidebar(){
+  const sb=document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  const ico=document.getElementById('sb-collapse-ico');
+  const lbl=document.getElementById('sb-collapse-lbl');
+  if(sb.classList.contains('collapsed')){ ico.className='fa-solid fa-bars'; }
+  else { ico.className='fa-solid fa-sidebar'; if(lbl) lbl.textContent='Collapse'; }
+}
+
+function toggleMobileMenu(){
+  document.getElementById('sidebar').classList.toggle('mobile-open');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+function renderAll(){
+  document.getElementById('sb-month-label').textContent=MONTHS_SHORT[currentMonth]+' '+currentYear;
+  // Update mds-year selector to reflect navigation year
+  const mdsYearEl=document.getElementById('mds-year'); if(mdsYearEl&&!document.getElementById('mds-year').options.namedItem('y'+currentYear)) { /* ensure year option exists */ }
+  const activeView=document.querySelector('.view.active');
+  const vname=activeView?activeView.id.replace('view-',''):'dashboard';
+  renderView(vname);
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  currentMonth=new Date().getMonth();
+  currentYear=new Date().getFullYear();
+  populateEquipFilter();
+  // Mobile menu btn
+  if(window.innerWidth<=768) document.getElementById('mobile-menu-btn').style.display='flex';
+  renderAll();
+});
+</script>
+</body>
+</html>
